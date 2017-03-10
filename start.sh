@@ -12,6 +12,7 @@ sleep 3
 
 ######
 # Don't rejoin channels while the host name leakage still hasn't been fixed
+# It might only be printed locally though
 ######
 #for CHAN in "${WATCH_CHANNELS[@]}"
 #do

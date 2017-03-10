@@ -7,7 +7,7 @@ PASS="js9YooPHCUbURC5nx4jqApywb6Nsk2p54AhVevZh"
 ZNC_SERVER_NAME="oftc"
 WATCH_CHANNELS=( "#pastly_test" )
 
-PASS=$PASS ./ii -i "$IRCDIR" -s "$SERVER" -n "$NICK/$ZNC_SERVER_NAME" -k "PASS" -f "$NICK" &
+PASS=$PASS ii -i "$IRCDIR" -s "$SERVER" -n "$NICK/$ZNC_SERVER_NAME" -k "PASS" -f "$NICK" &
 sleep 3
 
 ######

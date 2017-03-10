@@ -182,7 +182,7 @@ def main(s_dir, c_name):
             akick(speaker)
         #print(speaker+':',words)
         log_debug(speaker+': '+' '.join(words))
-        log_debug(str(members))
+        #log_debug(str(members))
         #print(members)
 
 if __name__=='__main__':

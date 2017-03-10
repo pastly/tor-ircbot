@@ -151,9 +151,11 @@ def main(s_dir, c_name):
         if speaker == '-!-':
             if tokens[4] == 'has' and tokens[5] == 'left':
                 nick = tokens[3].split('(')[0]
+                log_debug('{} left'.format(nick))
                 members = set([ m for m in members if m != nick ])
             elif tokens[4] == 'has' and tokens[5] == 'joined':
                 nick = tokens[3].split('(')[0]
+                log_debug('{} joined'.format(nick))
                 members.add(nick)
             # nick changes come in on server_out, not channel_out
             #elif tokens[4] == 'changed' and tokens[5] == 'nick' and tokens[6] == 'to':

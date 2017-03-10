@@ -58,6 +58,7 @@ def log_error(s):
 def sigint(signum, stack_frame):
     global server_out
     global channel_out
+    global privmsg_out
     global notice_fd
     global debug_fd
     if server_out: server_out.terminate()
@@ -174,6 +175,7 @@ def server_out_read_event(fd, mask):
         elif ' '.join(words[1:3]) == 'has quit':
             nick = words[0].split('(')[0]
             member_remove(nick)
+            log_debug('{} quit ({})'.format(nick,len(members)))
         else:
             log_warn('Ignorning unknown server ctrl message: {}'.format(
                 ' '.join(words)))

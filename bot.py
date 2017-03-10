@@ -14,8 +14,10 @@ channel_name = None
 server_out = None
 channel_out = None
 privmsg_out = None
-notice_fd = None
 debug_fd = None
+notice_fd = None
+warn_fd = None
+error_fd = None
 
 banned_words = \
 []
@@ -36,49 +38,62 @@ non_nick_punctuation = [':',',','!','?']
 def usage(prog_name):
     print(prog_name,"<root-ii-server-dir> <channel>")
 
-def log(fd, level, s):
+def log(fd, s, level):
     assert fd
     ts = datetime.now()
     fd.write('[{}] [{}] {}\n'.format(ts, level, s))
 
-def log_debug(s):
-    assert debug_fd
-    return log(debug_fd, 'debug', s)
+def log_debug(s, level='debug'):
+    if debug_fd:
+        return log(debug_fd, s, level)
+    return None
 
-def log_notice(s):
-    assert notice_fd
-    return log(notice_fd, 'notice', s)
+def log_notice(s, level='notice'):
+    if notice_fd:
+        return log(notice_fd, s, level)
+    else:
+        return log_debug(s, level)
 
-def log_warn(s):
-    return log_notice(s)
+def log_warn(s, level='warn'):
+    if warn_fd:
+        return log(warn_fd, s, level)
+    else:
+        return log_notice(s, level)
 
-def log_error(s):
-    return log_notice(s)
+def log_error(s, level='error'):
+    if error_fd:
+        return log(error_fd, s, level)
+    else:
+        return log_warn(s, level)
 
 def sigint(signum, stack_frame):
     global server_out
     global channel_out
     global privmsg_out
-    global notice_fd
     global debug_fd
+    global notice_fd
+    global warn_fd
+    global error_fd
+    log_notice("Shutting down bot due to signal")
     if server_out: server_out.terminate()
     if channel_out: channel_out.terminate()
     if privmsg_out: privmsg_out.terminate()
     server_out, channel_out, privmsg_out = None, None, None
-    if notice_fd:
-        log_notice("Shutting down bot due to signal")
-        notice_fd.close()
-    if debug_fd:
-        debug_fd.close()
-    notice_fd, debug_fd = None, None
+    if debug_fd: debug_fd.close()
+    if notice_fd: notice_fd.close()
+    if warn_fd: warn_fd.close()
+    if error_fd: error_fd.close()
+    debug_fd, notice_fd, warn_fd, error_fd = None, None, None, None
     exit(0)
 
 def sighup(signum, stack_frame):
     if server_out: server_out.stdout.flush()
     if channel_out: channel_out.stdout.flush()
     if privmsg_out: privmsg_out.stdout.flush()
-    if notice_fd: notice_fd.flush()
     if debug_fd: debug_fd.flush()
+    if notice_fd: notice_fd.flush()
+    if warn_fd: warn_fd.flush()
+    if error_fd: error_fd.flush()
 
 def akick(nick, reason=None):
     with open(server_dir+'/in','w') as server_in:
@@ -221,8 +236,10 @@ def main(s_dir, c_name):
     global server_out
     global channel_out
     global privmsg_out
-    global notice_fd
     global debug_fd
+    global notice_fd
+    global warn_fd
+    global error_fd
     members = set()
     server_dir = s_dir
     channel_name = c_name
@@ -236,8 +253,10 @@ def main(s_dir, c_name):
         ['tail','-F','-n','0','{}/pastly_bot/out'.format(
         server_dir,channel_name)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    notice_fd = open('{}/{}/notice.log'.format(server_dir,channel_name), 'a')
     debug_fd = open('{}/{}/debug.log'.format(server_dir,channel_name), 'a')
+    #notice_fd = open('{}/{}/notice.log'.format(server_dir,channel_name), 'a')
+    #warn_fd = open('{}/{}/warn.log'.format(server_dir,channel_name), 'a')
+    #error_fd = open('{}/{}/error.log'.format(server_dir,channel_name), 'a')
 
     log_notice("Starting up bot")
     members = get_all_members()

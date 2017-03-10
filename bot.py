@@ -13,6 +13,7 @@ server_dir = None
 channel_name = None
 server_out = None
 channel_out = None
+privmsg_out = None
 notice_fd = None
 debug_fd = None
 
@@ -61,7 +62,8 @@ def sigint(signum, stack_frame):
     global debug_fd
     if server_out: server_out.terminate()
     if channel_out: channel_out.terminate()
-    server_out, channel_out = None, None
+    if privmsg_out: privmsg_out.terminate()
+    server_out, channel_out, privmsg_out = None, None, None
     if notice_fd:
         log_notice("Shutting down bot due to signal")
         notice_fd.close()
@@ -73,6 +75,7 @@ def sigint(signum, stack_frame):
 def sighup(signum, stack_frame):
     if server_out: server_out.stdout.flush()
     if channel_out: channel_out.stdout.flush()
+    if privmsg_out: privmsg_out.stdout.flush()
     if notice_fd: notice_fd.flush()
     if debug_fd: debug_fd.flush()
 
@@ -204,12 +207,18 @@ def channel_out_read_event(fd, mask):
         if is_highlight_spam(words):
             akick(speaker, 'highlight spam')
 
+def privmsg_out_read_event(fd, mask):
+    line = fd.readline().decode('utf8')
+    tokens = line.split()
+    log_debug('privmsg: '+' '.join(tokens))
+
 def main(s_dir, c_name):
     global members
     global server_dir
     global channel_name
     global server_out
     global channel_out
+    global privmsg_out
     global notice_fd
     global debug_fd
     members = set()
@@ -220,6 +229,10 @@ def main(s_dir, c_name):
         stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     channel_out = subprocess.Popen(
         ['tail','-F','-n','0','{}/{}/out'.format(server_dir,channel_name)],
+        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    privmsg_out = subprocess.Popen(
+        ['tail','-F','-n','0','{}/pastly_bot/out'.format(
+        server_dir,channel_name)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     notice_fd = open('{}/{}/notice.log'.format(server_dir,channel_name), 'a')
     debug_fd = open('{}/{}/debug.log'.format(server_dir,channel_name), 'a')
@@ -233,6 +246,8 @@ def main(s_dir, c_name):
         server_out_read_event)
     selector.register(channel_out.stdout, selectors.EVENT_READ,
         channel_out_read_event)
+    selector.register(privmsg_out.stdout, selectors.EVENT_READ,
+        privmsg_out_read_event)
 
     while True:
         events = selector.select()

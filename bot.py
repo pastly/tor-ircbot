@@ -4,11 +4,15 @@ import signal
 import subprocess
 import sys
 from datetime import datetime
+from repeatedtimer import RepeatedTimer
+from threading import Lock
 
 selector = selectors.DefaultSelector()
 
 nick_prefixes = ['@','+']
 mention_limit = 1
+members = set()
+members_lock = Lock()
 server_dir = None
 channel_name = None
 server_out = None
@@ -18,6 +22,7 @@ debug_fd = None
 notice_fd = None
 warn_fd = None
 error_fd = None
+update_members_event = None
 
 banned_words = \
 []
@@ -34,6 +39,7 @@ common_words = \
 'these','give','day','most','us']
 
 non_nick_punctuation = [':',',','!','?']
+non_nick_punctuation.extend(nick_prefixes)
 
 def usage(prog_name):
     print(prog_name,"<root-ii-server-dir> <channel>")
@@ -74,6 +80,7 @@ def sigint(signum, stack_frame):
     global notice_fd
     global warn_fd
     global error_fd
+    global update_members_event
     log_notice("Shutting down bot due to signal")
     if server_out: server_out.terminate()
     if channel_out: channel_out.terminate()
@@ -84,6 +91,8 @@ def sigint(signum, stack_frame):
     if warn_fd: warn_fd.close()
     if error_fd: error_fd.close()
     debug_fd, notice_fd, warn_fd, error_fd = None, None, None, None
+    if update_members_event: update_members_event.stop()
+    update_members_event = None
     exit(0)
 
 def sighup(signum, stack_frame):
@@ -109,9 +118,12 @@ def akick(nick, reason=None):
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
     words = [ w for w in words if w not in common_words ]
+    members_lock.acquire()
+    members_ = members # grab local copy in order to not hold lock
+    members_lock.release()
     matches = set()
     # first try straight nick mentions with no prefix/suffix obfuscation
-    for match in [ w for w in words if w in members ]:
+    for match in [ w for w in words if w in members_ ]:
         matches.add(match)
     if len(matches) > mention_limit: return True
     # then try removing leading/trailing punctuation from words and see if
@@ -119,7 +131,7 @@ def is_highlight_spam(words):
     punc = ''.join(non_nick_punctuation)
     for word in words:
         word = word.lstrip(punc).rstrip(punc)
-        if word in members: matches.add(word)
+        if word in members_: matches.add(word)
     log_debug("{} nicks mentioned".format(len(matches)))
     if len(matches) > mention_limit: return True
     return False
@@ -130,44 +142,28 @@ def contains_banned_word(words):
         if banned_word in words: return True
     return False
 
-def get_all_members():
-    members = set()
-    with open('{}/in'.format(server_dir), 'w') as server_in:
-        server_in.write('/names {}\n'.format(channel_name))
-    while True:
-        line = server_out.stdout.readline().decode('utf8')
-        tokens = line.split()
-        # check if line is one that lists nicks in our channel. Starts with @ or
-        #  =, then our channel name, then some nicks
-        if tokens[2] in ['@', '='] and tokens[3] == channel_name:
-            nicks = tokens[4:]
-            # some nicks have prefixes for ops. Remove those prefixes
-            for n in nicks:
-                if n[0] in nick_prefixes: members.add(n[1:])
-                else: members.add(n)
-        # stop when we've found the end of the list
-        elif tokens[2] == channel_name and tokens[3] == 'End' and \
-            tokens[5] == '/NAMES':
-            break
-    return members
-
 def member_add(nick):
     global members
+    members_lock.acquire()
     old_len = len(members)
     members.add(nick.lower())
     if len(members) <= old_len:
         log_warn('Adding {} to members didn\'t increase length'.format(nick))
+    members_lock.release()
 
 def member_remove(nick):
     global members
+    members_lock.acquire()
     old_len = len(members)
     members.discard(nick.lower())
     if len(members) >= old_len:
         log_warn('Removing {} from members didn\'t decrease length'.format(
             nick))
+    members_lock.release()
 
 def member_changed_nick(old_nick, new_nick):
     global members
+    members_lock.acquire()
     old_nick = old_nick.lower()
     new_nick = new_nick.lower()
     # we only want to add the new nick if the old nick was in our set
@@ -176,6 +172,7 @@ def member_changed_nick(old_nick, new_nick):
     if len(members) < old_len:
         member_add(new_nick)
         log_debug('{} --> {}'.format(old_nick, new_nick))
+    members_lock.release()
 
 def server_out_read_event(fd, mask):
     line = fd.readline().decode('utf8')
@@ -190,10 +187,31 @@ def server_out_read_event(fd, mask):
         elif ' '.join(words[1:3]) == 'has quit':
             nick = words[0].split('(')[0]
             member_remove(nick)
+            members_lock.acquire()
             log_debug('{} quit ({})'.format(nick,len(members)))
+            members_lock.release()
         else:
             log_warn('Ignorning unknown server ctrl message: {}'.format(
                 ' '.join(words)))
+    elif speaker in ['@','=']:
+        if words[0] == channel_name:
+            for w in words[1:]:
+                if w[0] in nick_prefixes: member_add(w[1:])
+                else: member_add(w)
+            members_lock.acquire()
+            log_debug('Got {} more names. {} total'.format(len(words[1:]),
+                len(members)))
+            members_lock.release()
+    elif speaker == channel_name:
+        # this is __probably__ just telling us we've reached the end of the
+        # /NAMES list, but since I don't know what's going to get added after
+        # 6 months after writing this comment, I think logging in this condition
+        # would be smart
+        if ' '.join(words) == 'End of /NAMES list.':
+            pass
+        else:
+            log_debug('Ignoring unrecognized server ctrl message coming from '+
+                '{}: {}'.format(channel_name, ' '.join(words)))
     else:
         log_warn('Ignoring server ctrl message with unknown speaker: {}'.format(
             speaker))
@@ -207,11 +225,15 @@ def channel_out_read_event(fd, mask):
         if ' '.join(words[1:3]) == 'has left':
             nick = words[0].split('(')[0]
             member_remove(nick)
+            members_lock.acquire()
             log_debug('{} left ({})'.format(nick,len(members)))
+            members_lock.release()
         elif ' '.join(words[1:3]) == 'has joined':
             nick = words[0].split('(')[0]
             member_add(nick)
+            members_lock.acquire()
             log_debug('{} joined ({})'.format(nick,len(members)))
+            members_lock.release()
         else:
             log_warn('Ignoring unknown channel ctrl message: {}'.format(
                 ' '.join(words)))
@@ -229,8 +251,19 @@ def privmsg_out_read_event(fd, mask):
     tokens = line.split()
     log_debug('privmsg: '+' '.join(tokens))
 
-def main(s_dir, c_name):
+def ask_for_new_members():
     global members
+    log_debug('Clearing members set. Asking for members again')
+    members_lock.acquire()
+    members = set()
+    members_lock.release()
+    with open('{}/in'.format(server_dir), 'w') as server_in:
+        server_in.write('/names {}\n'.format(channel_name))
+
+def update_members_event_callback():
+    ask_for_new_members()
+
+def main(s_dir, c_name):
     global server_dir
     global channel_name
     global server_out
@@ -240,7 +273,7 @@ def main(s_dir, c_name):
     global notice_fd
     global warn_fd
     global error_fd
-    members = set()
+    global update_members_event
     server_dir = s_dir
     channel_name = c_name
     server_out = subprocess.Popen(
@@ -259,9 +292,7 @@ def main(s_dir, c_name):
     #error_fd = open('{}/{}/error.log'.format(server_dir,channel_name), 'a')
 
     log_notice("Starting up bot")
-    members = get_all_members()
-    log_debug(members)
-    log_debug("Starting members: {}".format(len(members)))
+    update_members_event_callback()
 
     selector.register(server_out.stdout, selectors.EVENT_READ,
         server_out_read_event)
@@ -270,6 +301,7 @@ def main(s_dir, c_name):
     selector.register(privmsg_out.stdout, selectors.EVENT_READ,
         privmsg_out_read_event)
 
+    update_members_event = RepeatedTimer(300, update_members_event_callback)
     while True:
         events = selector.select()
         for key, mask in events:

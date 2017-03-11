@@ -9,6 +9,9 @@ from repeatedtimer import RepeatedTimer
 
 selector = selectors.DefaultSelector()
 
+# need to be all lowercase
+masters = ['pastly']
+
 nick_prefixes = ['@','+']
 mention_limit = 10
 members = set()
@@ -104,16 +107,22 @@ def sighup(signum, stack_frame):
     if warn_fd: warn_fd.flush()
     if error_fd: error_fd.flush()
 
+def privmsg(nick, message):
+    with open(server_dir+'/in', 'w') as server_in:
+        server_in.write('/privmsg {} {}\n'.format(nick, message))
+
+def ping(nick):
+    return privmsg(nick, 'pong')
+
 def akick(nick, reason=None):
-    with open(server_dir+'/in','w') as server_in:
-        if not reason:
-            log_notice('akicking {}'.format(nick))
-            server_in.write('/privmsg chanserv akick {} add {}!*@*\n'.format(
-                channel_name, nick))
-        else:
-            log_notice('akicking {} for {}'.format(nick, reason))
-            server_in.write('/privmsg chanserv akick {} add {}!*@* {}\n'.format(
-                channel_name, nick, reason))
+    if not reason:
+        log_notice('akicking {}'.format(nick))
+        privmsg('chanserv', 'akick {} add {}!*@*\n'.format(
+            channel_name, nick))
+    else:
+        log_notice('akicking {} for {}'.format(nick, reason))
+        privmsg('chanserv', 'akick {} add {}!*@* {}\n'.format(
+            channel_name, nick, reason))
 
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
@@ -249,7 +258,21 @@ def channel_out_read_event(fd, mask):
 def privmsg_out_read_event(fd, mask):
     line = fd.readline().decode('utf8')
     tokens = line.split()
-    log_debug('privmsg: '+' '.join(tokens))
+    speaker = tokens[2]
+    words = tokens[3:]
+    if speaker[0] != '<' or speaker[-1] != '>':
+        log_warn('Ignoring privmsg with weird speaker: {}'.format(speaker))
+        return
+    speaker = speaker[1:-1].lower()
+    if speaker not in masters:
+        log_warn('Ignoring privmsg from non-master: {}'.format(speaker))
+        return
+    if ' '.join(words) == 'ping':
+        log_debug('master {} pinged us'.format(speaker))
+        ping(speaker)
+    else:
+        log_debug('master {} said "{}" but we don\'t have a response'.format(
+            speaker, ' '.join(words)))
 
 def ask_for_new_members():
     global members

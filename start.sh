@@ -10,14 +10,9 @@ WATCH_CHANNELS=( "#pastly_test" )
 PASS=$PASS ii -i "$IRCDIR" -s "$SERVER" -n "$NICK/$ZNC_SERVER_NAME" -k "PASS" -f "$NICK" &
 sleep 3
 
-######
-# Don't rejoin channels while the host name leakage still hasn't been fixed
-# It might only be printed locally though
-######
-#for CHAN in "${WATCH_CHANNELS[@]}"
-#do
-#       echo "/join $CHAN" > "$IRCDIR/$SERVER/in"
-#       sleep 1
-#       ./bot.py "$IRCDIR/$SERVER" "$CHAN" &
-#done
-
+for CHAN in "${WATCH_CHANNELS[@]}"
+do
+       echo "/join $CHAN" > "$IRCDIR/$SERVER/in"
+       sleep 1
+       ./bot.py "$IRCDIR/$SERVER" "$CHAN" &
+done

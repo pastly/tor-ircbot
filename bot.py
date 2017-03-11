@@ -5,14 +5,14 @@ import subprocess
 import sys
 from datetime import datetime
 from repeatedtimer import RepeatedTimer
-from threading import Lock
+#from threading import Lock
 
 selector = selectors.DefaultSelector()
 
 nick_prefixes = ['@','+']
 mention_limit = 10
 members = set()
-members_lock = Lock()
+#members_lock = Lock()
 server_dir = None
 channel_name = None
 server_out = None
@@ -118,9 +118,9 @@ def akick(nick, reason=None):
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
     words = [ w for w in words if w not in common_words ]
-    members_lock.acquire()
+    #members_lock.acquire()
     members_ = members # grab local copy in order to not hold lock
-    members_lock.release()
+    #members_lock.release()
     matches = set()
     # first try straight nick mentions with no prefix/suffix obfuscation
     for match in [ w for w in words if w in members_ ]:
@@ -144,26 +144,26 @@ def contains_banned_word(words):
 
 def member_add(nick):
     global members
-    members_lock.acquire()
+    #members_lock.acquire()
     old_len = len(members)
     members.add(nick.lower())
     if len(members) <= old_len:
         log_warn('Adding {} to members didn\'t increase length'.format(nick))
-    members_lock.release()
+    #members_lock.release()
 
 def member_remove(nick):
     global members
-    members_lock.acquire()
+    #members_lock.acquire()
     old_len = len(members)
     members.discard(nick.lower())
     if len(members) >= old_len:
         log_warn('Removing {} from members didn\'t decrease length'.format(
             nick))
-    members_lock.release()
+    #members_lock.release()
 
 def member_changed_nick(old_nick, new_nick):
     global members
-    members_lock.acquire()
+    #members_lock.acquire()
     old_nick = old_nick.lower()
     new_nick = new_nick.lower()
     # we only want to add the new nick if the old nick was in our set
@@ -172,7 +172,7 @@ def member_changed_nick(old_nick, new_nick):
     if len(members) < old_len:
         member_add(new_nick)
         log_debug('{} --> {}'.format(old_nick, new_nick))
-    members_lock.release()
+    #members_lock.release()
 
 def server_out_read_event(fd, mask):
     line = fd.readline().decode('utf8')
@@ -187,9 +187,9 @@ def server_out_read_event(fd, mask):
         elif ' '.join(words[1:3]) == 'has quit':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            members_lock.acquire()
+            #members_lock.acquire()
             log_debug('{} quit ({})'.format(nick,len(members)))
-            members_lock.release()
+            #members_lock.release()
         else:
             log_warn('Ignorning unknown server ctrl message: {}'.format(
                 ' '.join(words)))
@@ -198,10 +198,10 @@ def server_out_read_event(fd, mask):
             for w in words[1:]:
                 if w[0] in nick_prefixes: member_add(w[1:])
                 else: member_add(w)
-            members_lock.acquire()
+            #members_lock.acquire()
             log_debug('Got {} more names. {} total'.format(len(words[1:]),
                 len(members)))
-            members_lock.release()
+            #members_lock.release()
     elif speaker == channel_name:
         # this is __probably__ just telling us we've reached the end of the
         # /NAMES list, but since I don't know what's going to get added after
@@ -225,15 +225,15 @@ def channel_out_read_event(fd, mask):
         if ' '.join(words[1:3]) == 'has left':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            members_lock.acquire()
+            #members_lock.acquire()
             log_debug('{} left ({})'.format(nick,len(members)))
-            members_lock.release()
+            #members_lock.release()
         elif ' '.join(words[1:3]) == 'has joined':
             nick = words[0].split('(')[0]
             member_add(nick)
-            members_lock.acquire()
+            #members_lock.acquire()
             log_debug('{} joined ({})'.format(nick,len(members)))
-            members_lock.release()
+            #members_lock.release()
         else:
             log_warn('Ignoring unknown channel ctrl message: {}'.format(
                 ' '.join(words)))
@@ -254,9 +254,9 @@ def privmsg_out_read_event(fd, mask):
 def ask_for_new_members():
     global members
     log_debug('Clearing members set. Asking for members again')
-    members_lock.acquire()
+    #members_lock.acquire()
     members = set()
-    members_lock.release()
+    #members_lock.release()
     with open('{}/in'.format(server_dir), 'w') as server_in:
         server_in.write('/names {}\n'.format(channel_name))
 

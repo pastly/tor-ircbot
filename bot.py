@@ -10,7 +10,7 @@ from threading import Lock
 selector = selectors.DefaultSelector()
 
 nick_prefixes = ['@','+']
-mention_limit = 1
+mention_limit = 10
 members = set()
 members_lock = Lock()
 server_dir = None
@@ -108,12 +108,12 @@ def akick(nick, reason=None):
     with open(server_dir+'/in','w') as server_in:
         if not reason:
             log_notice('akicking {}'.format(nick))
-            #server_in.write('/privmsg chanserv akick {} add {}!*@*\n'.format(
-            #    channel_name, nick))
+            server_in.write('/privmsg chanserv akick {} add {}!*@*\n'.format(
+                channel_name, nick))
         else:
             log_notice('akicking {} for {}'.format(nick, reason))
-            #server_in.write('/privmsg chanserv akick {} add {}!*@* {}\n'.format(
-            #    channel_name, nick, reason))
+            server_in.write('/privmsg chanserv akick {} add {}!*@* {}\n'.format(
+                channel_name, nick, reason))
 
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]

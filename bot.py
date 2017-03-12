@@ -318,7 +318,7 @@ def main(s_dir, c_name):
     selector.register(privmsg_out.stdout, selectors.EVENT_READ,
         privmsg_out_read_event)
 
-    update_members_event = RepeatedTimer(300, update_members_event_callback)
+    #update_members_event = RepeatedTimer(600, update_members_event_callback)
     while True:
         events = selector.select()
         for key, mask in events:

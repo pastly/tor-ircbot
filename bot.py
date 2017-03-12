@@ -44,6 +44,49 @@ common_words = \
 non_nick_punctuation = [':',',','!','?']
 non_nick_punctuation.extend(nick_prefixes)
 
+# True if successful
+def set_mention_limit(value):
+    global mention_limit
+    if len(value) != 1:
+        log_warn('Ignorning mention_limit: {}'.format(value))
+        return False
+    value = value[0]
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        log_warn('Ignoring non-int mention_limit: {}'.format(value))
+        return False
+    mention_limit = value
+    return True
+
+def get_mention_limit():
+    return mention_limit
+
+# True if successful
+def set_update_members_interval(value):
+    if len(value) != 1:
+        log_warn('Ignoring update_members_interval: {}'.format(value))
+        return False
+    value = value[0]
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        log_warn('Ignoring non-int update_members_interval: {}'.format(value))
+    if value <= 0: value = 0
+    update_members_event.interval = value
+    update_members_event.stop()
+    if value > 0: update_members_event.start()
+    return True
+
+def get_update_members_interval():
+    return update_members_event.interval
+
+options = {
+    'mention_limit': (set_mention_limit, get_mention_limit),
+    'update_members_interval':
+        (set_update_members_interval, get_update_members_interval),
+}
+
 def usage(prog_name):
     print(prog_name,"<root-ii-server-dir> <channel>")
 
@@ -176,6 +219,18 @@ def member_changed_nick(old_nick, new_nick):
         log_debug('{} --> {}'.format(old_nick, new_nick))
     #members_lock.release()
 
+def set_option(option, value):
+    if option not in options:
+        log_warn('Ignoring unknown option: {}'.format(option))
+        return False
+    return options[option][0](value)
+
+def get_option(option):
+    if option not in options:
+        log_warn('Ignoring unknown option: {}'.format(option))
+        return None
+    return options[option][1]()
+
 def server_out_read_event(fd, mask):
     line = fd.readline().decode('utf8')
     tokens = line.split()
@@ -264,6 +319,27 @@ def privmsg_out_read_event(fd, mask):
     if ' '.join(words) == 'ping':
         log_debug('master {} pinged us'.format(speaker))
         ping(speaker)
+    elif words[0] == 'set':
+        if len(words) < 3:
+            log_warn('Ignoring bad set command from {}: {}'.format(
+                speaker, ' '.join(words)))
+            return
+        if not set_option(words[1], words[2:]):
+            privmsg(speaker, 'Failed to set {} to {}'.format(
+                words[1], ' '.join(words[2:])))
+        else:
+            log_notice('{} set {} to {}'.format(
+                speaker, words[1], ' '.join(words[2:])))
+            privmsg(speaker, '{} is {}'.format(words[1], get_option(words[1])))
+    elif words[0] == 'get':
+        if len(words) != 2:
+            log_warn('Ignoring bad get command from {}: {}'.format(
+                speaker, ' '.join(words)))
+            return
+        value = get_option(words[1])
+        privmsg(speaker, '{} is {}'.format(words[1], value))
+    elif words[0] == 'options':
+        privmsg(speaker, ' '.join(options))
     else:
         log_debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))

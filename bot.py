@@ -53,27 +53,20 @@ def log(fd, s, level):
     fd.write('[{}] [{}] {}\n'.format(ts, level, s))
 
 def log_debug(s, level='debug'):
-    if debug_fd:
-        return log(debug_fd, s, level)
+    if debug_fd: return log(debug_fd, s, level)
     return None
 
 def log_notice(s, level='notice'):
-    if notice_fd:
-        return log(notice_fd, s, level)
-    else:
-        return log_debug(s, level)
+    if notice_fd: return log(notice_fd, s, level)
+    else: return log_debug(s, level)
 
 def log_warn(s, level='warn'):
-    if warn_fd:
-        return log(warn_fd, s, level)
-    else:
-        return log_notice(s, level)
+    if warn_fd: return log(warn_fd, s, level)
+    else: return log_notice(s, level)
 
 def log_error(s, level='error'):
-    if error_fd:
-        return log(error_fd, s, level)
-    else:
-        return log_warn(s, level)
+    if error_fd: return log(error_fd, s, level)
+    else: return log_warn(s, level)
 
 def sigint(signum, stack_frame):
     global server_out

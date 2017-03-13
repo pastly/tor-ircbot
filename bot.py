@@ -369,16 +369,20 @@ def main(s_dir, c_name):
     global update_members_event
     server_dir = s_dir
     channel_name = c_name
+    # bufsize=1 means line-based buffering. Perfect for IRC :)
     server_out = subprocess.Popen(
         ['tail','-F','-n','0','{}/out'.format(server_dir)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        bufsize=1)
     channel_out = subprocess.Popen(
         ['tail','-F','-n','0','{}/{}/out'.format(server_dir,channel_name)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        bufsize=1)
     privmsg_out = subprocess.Popen(
         ['tail','-F','-n','0','{}/pastly_bot/out'.format(
         server_dir,channel_name)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        bufsize=1)
     debug_fd = open('{}/{}/debug.log'.format(server_dir,channel_name), 'a')
     #notice_fd = open('{}/{}/notice.log'.format(server_dir,channel_name), 'a')
     #warn_fd = open('{}/{}/warn.log'.format(server_dir,channel_name), 'a')

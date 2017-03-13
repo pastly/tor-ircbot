@@ -299,7 +299,7 @@ def channel_out_read_event(fd, mask):
             speaker))
     else:
         speaker = speaker[1:-1].lower()
-        log_debug('{}: {}'.format(speaker, ' '.join(words)))
+        log_debug('<{}> {}'.format(speaker, ' '.join(words)))
         if is_highlight_spam(words):
             akick(speaker, 'highlight spam')
             member_remove(speaker)

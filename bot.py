@@ -4,8 +4,8 @@ import signal
 import subprocess
 import sys
 from datetime import datetime
-from repeatedtimer import RepeatedTimer
 from pastlylogger import PastlyLogger
+from repeatedtimer import RepeatedTimer
 #from threading import Lock
 
 selector = selectors.DefaultSelector()
@@ -20,9 +20,9 @@ members = set()
 #members_lock = Lock()
 server_dir = None
 channel_name = None
-server_out = None
-channel_out = None
-privmsg_out = None
+server_out_process = None
+channel_out_process = None
+privmsg_out_process = None
 update_members_event = None
 
 banned_words = \
@@ -89,23 +89,24 @@ def usage(prog_name):
     print(prog_name,"<root-ii-server-dir> <channel>")
 
 def sigint(signum, stack_frame):
-    global server_out
-    global channel_out
-    global privmsg_out
+    global server_out_process
+    global channel_out_process
+    global privmsg_out_process
     global update_members_event
     log.notice("Shutting down bot due to signal")
-    if server_out: server_out.terminate()
-    if channel_out: channel_out.terminate()
-    if privmsg_out: privmsg_out.terminate()
-    server_out, channel_out, privmsg_out = None, None, None
+    if server_out_process: server_out_process.terminate()
+    if channel_out_process: channel_out_process.terminate()
+    if privmsg_out_process: privmsg_out_process.terminate()
+    server_out_process, channel_out_process = None, None
+    privmsg_out_process = None
     if update_members_event: update_members_event.stop()
     update_members_event = None
     exit(0)
 
 def sighup(signum, stack_frame):
-    if server_out: server_out.stdout.flush()
-    if channel_out: channel_out.stdout.flush()
-    if privmsg_out: privmsg_out.stdout.flush()
+    if server_out_process: server_out_process.stdout.flush()
+    if channel_out_process: channel_out_process.stdout.flush()
+    if privmsg_out_process: privmsg_out_process.stdout.flush()
     log.flush()
 
 def privmsg(nick, message):
@@ -196,7 +197,7 @@ def get_option(option):
         return None
     return options[option][1]()
 
-def server_out_read_event(fd, mask):
+def server_out_process_read_event(fd, mask):
     line = fd.readline().decode('utf8')
     tokens = line.split()
     speaker = tokens[2]
@@ -238,7 +239,7 @@ def server_out_read_event(fd, mask):
         log.warn('Ignoring server ctrl message with unknown speaker: {}'.format(
             speaker))
 
-def channel_out_read_event(fd, mask):
+def channel_out_process_read_event(fd, mask):
     line = fd.readline().decode('utf8')
     tokens = line.split()
     speaker = tokens[2]
@@ -269,7 +270,7 @@ def channel_out_read_event(fd, mask):
             akick(speaker, 'highlight spam')
             member_remove(speaker)
 
-def privmsg_out_read_event(fd, mask):
+def privmsg_out_process_read_event(fd, mask):
     line = fd.readline().decode('utf8')
     tokens = line.split()
     speaker = tokens[2]
@@ -324,23 +325,23 @@ def update_members_event_callback():
 def main(s_dir, c_name):
     global server_dir
     global channel_name
-    global server_out
-    global channel_out
-    global privmsg_out
+    global server_out_process
+    global channel_out_process
+    global privmsg_out_process
     global update_members_event
     global log
     server_dir = s_dir
     channel_name = c_name
     # bufsize=1 means line-based buffering. Perfect for IRC :)
-    server_out = subprocess.Popen(
+    server_out_process = subprocess.Popen(
         ['tail','-F','-n','0','{}/out'.format(server_dir)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
         bufsize=1)
-    channel_out = subprocess.Popen(
+    channel_out_process = subprocess.Popen(
         ['tail','-F','-n','0','{}/{}/out'.format(server_dir,channel_name)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
         bufsize=1)
-    privmsg_out = subprocess.Popen(
+    privmsg_out_process = subprocess.Popen(
         ['tail','-F','-n','0','{}/pastly_bot/out'.format(
         server_dir,channel_name)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
@@ -353,12 +354,12 @@ def main(s_dir, c_name):
 
     update_members_event_callback()
 
-    selector.register(server_out.stdout, selectors.EVENT_READ,
-        server_out_read_event)
-    selector.register(channel_out.stdout, selectors.EVENT_READ,
-        channel_out_read_event)
-    selector.register(privmsg_out.stdout, selectors.EVENT_READ,
-        privmsg_out_read_event)
+    selector.register(server_out_process.stdout, selectors.EVENT_READ,
+        server_out_process_read_event)
+    selector.register(channel_out_process.stdout, selectors.EVENT_READ,
+        channel_out_process_read_event)
+    selector.register(privmsg_out_process.stdout, selectors.EVENT_READ,
+        privmsg_out_process_read_event)
 
     update_members_event = RepeatedTimer(3600, update_members_event_callback)
     while True:

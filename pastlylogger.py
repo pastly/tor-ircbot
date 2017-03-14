@@ -3,20 +3,26 @@ class PastlyLogger:
     def __init__(self, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
 
+        # buffering=1 means line-based buffering
         if error:
-            self.error_fd = open(error, 'w' if 'error' in overwrite else 'a')
+            self.error_fd = open(error, 'w' if 'error' in overwrite else 'a',
+                buffering=1)
         else: self.error_fd = None
         if warn:
-            self.warn_fd = open(warn, 'w' if 'warn' in overwrite else 'a')
+            self.warn_fd = open(warn, 'w' if 'warn' in overwrite else 'a',
+                buffering=1)
         else: self.warn_fd = None
         if notice:
-            self.notice_fd = open(notice, 'w' if 'notice' in overwrite else 'a')
+            self.notice_fd = open(notice, 'w' if 'notice' in overwrite else 'a',
+                buffering=1)
         else: self.notice_fd = None
         if info:
-            self.info_fd = open(info, 'w' if 'info' in overwrite else 'a')
+            self.info_fd = open(info, 'w' if 'info' in overwrite else 'a',
+                buffering=1)
         else: self.info_fd = None
         if debug:
-            self.debug_fd = open(debug, 'w' if 'debug' in overwrite else 'a')
+            self.debug_fd = open(debug, 'w' if 'debug' in overwrite else 'a',
+                buffering=1)
         else: self.debug_fd = None
 
         self.debug('Creating PastlyLogger instance')

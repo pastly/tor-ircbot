@@ -1,3 +1,11 @@
+# WARNING
+
+`start.sh` needs to be scrubbed from commit history before sharing code.
+
+Also check for pastly's nickserv password (and pastly_bot's while you're at it).
+
+Look for mentions of the string 'pastly' too, why don't you.
+
 # About
 
 This bot requires [`ii`][ii], a suckless tool. Right now it expects ii to be in

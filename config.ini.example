@@ -1,0 +1,8 @@
+[ii]
+ircdir = ircdir
+server = localhost
+port = 6667
+server_pass = soopersekretstring
+nick = didnteditconf
+channel = #didnteditconf
+

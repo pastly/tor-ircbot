@@ -1,25 +1,32 @@
 #!/usr/bin/env python3
 import selectors
+import os
 import signal
 import subprocess
 import sys
+from configparser import ConfigParser
 from datetime import datetime
 from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
-#from threading import Lock
+from threading import Thread, Event
 
 selector = selectors.DefaultSelector()
 log = None
 
+config = ConfigParser()
+config.read('config.ini')
+
 # need to be all lowercase
 masters = ['pastly']
 
+is_shutting_down = Event()
 nick_prefixes = ['@','+']
 mention_limit = 10
 members = set()
 #members_lock = Lock()
 server_dir = None
 channel_name = None
+ii_process = None
 server_out_process = None
 channel_out_process = None
 privmsg_out_process = None
@@ -89,14 +96,20 @@ def usage(prog_name):
     print(prog_name,"<root-ii-server-dir> <channel>")
 
 def sigint(signum, stack_frame):
+    global ii_process
     global server_out_process
     global channel_out_process
     global privmsg_out_process
     global update_members_event
     log.notice("Shutting down bot due to signal")
+    is_shutting_down.set()
+    if ii_process:
+        try: ii_process.terminate()
+        except ProcessLookupError: pass
     if server_out_process: server_out_process.terminate()
     if channel_out_process: channel_out_process.terminate()
     if privmsg_out_process: privmsg_out_process.terminate()
+    ii_process = None
     server_out_process, channel_out_process = None, None
     privmsg_out_process = None
     if update_members_event: update_members_event.stop()
@@ -322,7 +335,30 @@ def ask_for_new_members():
 def update_members_event_callback():
     ask_for_new_members()
 
-def main(s_dir, c_name):
+def prepare_ircdir():
+    os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
+
+def ii_thread():
+    global ii_process
+    assert not ii_process
+    prepare_ircdir()
+    nick = config['ii']['nick']
+    server = config['ii']['server']
+    port = config['ii']['port']
+    server_pass = config['ii']['server_pass']
+    ircdir = config['ii']['ircdir']
+    while True:
+        if log: log.notice('(Re)Starting ii process')
+        ii_process = subprocess.Popen(
+            ['ii','-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
+            env={'PATH': '/usr/local/bin:$PATH', 'PASS': server_pass},
+        )
+        ii_process.wait()
+        log.warn('ii process went away')
+        if is_shutting_down.wait(5): break
+    log.notice('Stopping ii process for good')
+
+def main():
     global server_dir
     global channel_name
     global server_out_process
@@ -330,8 +366,13 @@ def main(s_dir, c_name):
     global privmsg_out_process
     global update_members_event
     global log
-    server_dir = s_dir
-    channel_name = c_name
+
+    server_dir = os.path.join(config['ii']['ircdir'],config['ii']['server'])
+    channel_name = config['ii']['channel']
+
+    t = Thread(target=ii_thread, name='ii watchdog')
+    t.start()
+
     # bufsize=1 means line-based buffering. Perfect for IRC :)
     server_out_process = subprocess.Popen(
         ['tail','-F','-n','0','{}/out'.format(server_dir)],
@@ -347,12 +388,14 @@ def main(s_dir, c_name):
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
         bufsize=1)
 
+
     log = PastlyLogger(
         debug='{}/{}/debug.log'.format(server_dir, channel_name),
     )
     log.notice("Starting up bot")
 
     update_members_event_callback()
+
 
     selector.register(server_out_process.stdout, selectors.EVENT_READ,
         server_out_process_read_event)
@@ -372,9 +415,4 @@ if __name__=='__main__':
     signal.signal(signal.SIGINT, sigint)
     signal.signal(signal.SIGTERM, sigint)
     signal.signal(signal.SIGHUP, sighup)
-    if len(sys.argv) < 3:
-        usage(sys.argv[0])
-        exit(1)
-    server_dir = sys.argv[1]
-    channel_name = sys.argv[2]
-    main(server_dir, channel_name)
+    main()

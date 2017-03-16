@@ -92,9 +92,6 @@ options = {
         (set_update_members_interval, get_update_members_interval),
 }
 
-def usage(prog_name):
-    print(prog_name,"<root-ii-server-dir> <channel>")
-
 def sigint(signum, stack_frame):
     global ii_process
     global server_out_process

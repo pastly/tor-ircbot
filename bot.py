@@ -23,7 +23,6 @@ is_shutting_down = Event()
 nick_prefixes = ['@','+']
 mention_limit = 10
 members = set()
-#members_lock = Lock()
 server_dir = None
 channel_name = None
 ii_process = None
@@ -139,12 +138,9 @@ def akick(nick, reason=None):
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
     words = [ w for w in words if w not in common_words ]
-    #members_lock.acquire()
-    members_ = members # grab local copy in order to not hold lock
-    #members_lock.release()
     matches = set()
     # first try straight nick mentions with no prefix/suffix obfuscation
-    for match in [ w for w in words if w in members_ ]:
+    for match in [ w for w in words if w in members ]:
         matches.add(match)
     if len(matches) > mention_limit: return True
     # then try removing leading/trailing punctuation from words and see if
@@ -152,7 +148,7 @@ def is_highlight_spam(words):
     punc = ''.join(non_nick_punctuation)
     for word in words:
         word = word.lstrip(punc).rstrip(punc)
-        if word in members_: matches.add(word)
+        if word in members: matches.add(word)
     log.debug("{} nicks mentioned".format(len(matches)))
     if len(matches) > mention_limit: return True
     return False
@@ -165,26 +161,21 @@ def contains_banned_word(words):
 
 def member_add(nick):
     global members
-    #members_lock.acquire()
     old_len = len(members)
     members.add(nick.lower())
     if len(members) <= old_len:
         log.warn('Adding {} to members didn\'t increase length'.format(nick))
-    #members_lock.release()
 
 def member_remove(nick):
     global members
-    #members_lock.acquire()
     old_len = len(members)
     members.discard(nick.lower())
     if len(members) >= old_len:
         log.warn('Removing {} from members didn\'t decrease length'.format(
             nick))
-    #members_lock.release()
 
 def member_changed_nick(old_nick, new_nick):
     global members
-    #members_lock.acquire()
     old_nick = old_nick.lower()
     new_nick = new_nick.lower()
     # we only want to add the new nick if the old nick was in our set
@@ -193,7 +184,6 @@ def member_changed_nick(old_nick, new_nick):
     if len(members) < old_len:
         member_add(new_nick)
         log.debug('{} --> {}'.format(old_nick, new_nick))
-    #members_lock.release()
 
 def set_option(option, value):
     if option not in options:
@@ -220,9 +210,7 @@ def server_out_process_read_event(fd, mask):
         elif ' '.join(words[1:3]) == 'has quit':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            #members_lock.acquire()
             log.debug('{} quit ({})'.format(nick,len(members)))
-            #members_lock.release()
         else:
             log.warn('Ignorning unknown server ctrl message: {}'.format(
                 ' '.join(words)))
@@ -231,10 +219,8 @@ def server_out_process_read_event(fd, mask):
             for w in words[1:]:
                 if w[0] in nick_prefixes: member_add(w[1:])
                 else: member_add(w)
-            #members_lock.acquire()
             log.debug('Got {} more names. {} total'.format(len(words[1:]),
                 len(members)))
-            #members_lock.release()
     elif speaker == channel_name:
         # this is __probably__ just telling us we've reached the end of the
         # /NAMES list, but since I don't know what's going to get added after
@@ -258,15 +244,11 @@ def channel_out_process_read_event(fd, mask):
         if ' '.join(words[1:3]) == 'has left':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            #members_lock.acquire()
             log.debug('{} left ({})'.format(nick,len(members)))
-            #members_lock.release()
         elif ' '.join(words[1:3]) == 'has joined':
             nick = words[0].split('(')[0]
             member_add(nick)
-            #members_lock.acquire()
             log.debug('{} joined ({})'.format(nick,len(members)))
-            #members_lock.release()
         else:
             log.warn('Ignoring unknown channel ctrl message: {}'.format(
                 ' '.join(words)))
@@ -323,9 +305,7 @@ def privmsg_out_process_read_event(fd, mask):
 def ask_for_new_members():
     global members
     log.debug('Clearing members set. Asking for members again')
-    #members_lock.acquire()
     members = set()
-    #members_lock.release()
     with open('{}/in'.format(server_dir), 'w') as server_in:
         server_in.write('/names {}\n'.format(channel_name))
 

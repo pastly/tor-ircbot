@@ -1,4 +1,5 @@
 [ii]
+path = /usr/local/bin/ii
 ircdir = ircdir
 server = localhost
 port = 6667
@@ -6,3 +7,9 @@ server_pass = soopersekretstring
 nick = didnteditconf
 channel = #didnteditconf
 
+[general]
+update_members_interval = 28800
+
+[highlight_spam]
+enabled = yes
+mention_limit = 20

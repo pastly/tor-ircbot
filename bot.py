@@ -344,6 +344,7 @@ def ii_thread():
     global ii_process
     assert not ii_process
     prepare_ircdir()
+    ii_bin = config['ii']['path']
     nick = config['ii']['nick']
     server = config['ii']['server']
     port = config['ii']['port']
@@ -352,8 +353,8 @@ def ii_thread():
     while True:
         if log: log.notice('(Re)Starting ii process')
         ii_process = subprocess.Popen(
-            ['ii','-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
-            env={'PATH': '/usr/local/bin:$PATH', 'PASS': server_pass},
+            [ii_bin,'-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
+            env={'PASS': server_pass},
         )
         ii_process.wait()
         log.warn('ii process went away')

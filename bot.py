@@ -10,18 +10,20 @@ from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
 from threading import Thread, Event
 
+# TODO: enable/disable highlight spam detection
+
 selector = selectors.DefaultSelector()
 log = None
 
+config_file = 'config.ini'
 config = ConfigParser()
-config.read('config.ini')
+config.read(config_file)
 
 # need to be all lowercase
 masters = ['pastly']
 
 is_shutting_down = Event()
 nick_prefixes = ['@','+']
-mention_limit = 10
 members = set()
 server_dir = None
 channel_name = None
@@ -50,21 +52,20 @@ non_nick_punctuation.extend(nick_prefixes)
 
 # True if successful
 def set_mention_limit(value):
-    global mention_limit
     if len(value) != 1:
         log.warn('Ignorning mention_limit: {}'.format(value))
         return False
     value = value[0]
     try:
-        value = int(value)
+        _ = int(value)
     except (TypeError, ValueError):
         log.warn('Ignoring non-int mention_limit: {}'.format(value))
         return False
-    mention_limit = value
+    config['highlight_spam']['mention_limit'] = value
     return True
 
 def get_mention_limit():
-    return mention_limit
+    return int(config['highlight_spam']['mention_limit'])
 
 # True if successful
 def set_update_members_interval(value):
@@ -77,6 +78,7 @@ def set_update_members_interval(value):
     except (TypeError, ValueError):
         log.warn('Ignoring non-int update_members_interval: {}'.format(value))
     if value <= 0: value = 0
+    config['general']['update_members_interval'] = str(value)
     update_members_event.interval = value
     update_members_event.stop()
     if value > 0: update_members_event.start()
@@ -85,6 +87,16 @@ def set_update_members_interval(value):
 def get_update_members_interval():
     return update_members_event.interval
 
+# Each key is an option that can be set
+# Each value is a tuple of (func_to_set_opt, func_to_get_opt)
+#
+# The setter must take a single argument and return True if it was set
+# successfully. Otherwise return False.
+#
+# The convention in this file is for the single value argument in the setters to
+# be a list of strings. If one value is expected, len(list) should equal 1.
+# If ints are required, try casting to int and cleanly return False on error.
+# See set_update_members_interval for an example of both these things.
 options = {
     'mention_limit': (set_mention_limit, get_mention_limit),
     'update_members_interval':
@@ -142,7 +154,7 @@ def is_highlight_spam(words):
     # first try straight nick mentions with no prefix/suffix obfuscation
     for match in [ w for w in words if w in members ]:
         matches.add(match)
-    if len(matches) > mention_limit: return True
+    if len(matches) > get_mention_limit(): return True
     # then try removing leading/trailing punctuation from words and see if
     # they then start to look like nicks. Not all punctuation is illegal
     punc = ''.join(non_nick_punctuation)
@@ -150,7 +162,7 @@ def is_highlight_spam(words):
         word = word.lstrip(punc).rstrip(punc)
         if word in members: matches.add(word)
     log.debug("{} nicks mentioned".format(len(matches)))
-    if len(matches) > mention_limit: return True
+    if len(matches) > get_mention_limit(): return True
     return False
 
 def contains_banned_word(words):
@@ -196,6 +208,10 @@ def get_option(option):
         log.warn('Ignoring unknown option: {}'.format(option))
         return None
     return options[option][1]()
+
+def save_config(filename):
+    with open(filename, 'w') as f:
+        config.write(f)
 
 def server_out_process_read_event(fd, mask):
     line = fd.readline().decode('utf8')
@@ -298,6 +314,15 @@ def privmsg_out_process_read_event(fd, mask):
         privmsg(speaker, '{} is {}'.format(words[1], value))
     elif words[0] == 'options':
         privmsg(speaker, ' '.join(options))
+    elif words[0] == 'save':
+        if len(words) != 2:
+            log.warn('Ignoring bad save cmomand from {}: {}'.format(
+                speaker, ' '.join(words)))
+            return
+        if words[1] == 'config':
+            save_config(config_file)
+            privmsg(speaker,'saved config')
+            log.notice('{} saved config to {}'.format(speaker, config_file))
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))
@@ -365,14 +390,10 @@ def main():
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
         bufsize=1)
 
-
     log = PastlyLogger(
         debug='{}/{}/debug.log'.format(server_dir, channel_name),
     )
     log.notice("Starting up bot")
-
-    update_members_event_callback()
-
 
     selector.register(server_out_process.stdout, selectors.EVENT_READ,
         server_out_process_read_event)
@@ -381,7 +402,10 @@ def main():
     selector.register(privmsg_out_process.stdout, selectors.EVENT_READ,
         privmsg_out_process_read_event)
 
-    update_members_event = RepeatedTimer(3600, update_members_event_callback)
+    update_members_event = RepeatedTimer(
+        config.getint('general', 'update_members_interval', fallback=60*60*8),
+        update_members_event_callback)
+
     while True:
         events = selector.select()
         for key, mask in events:

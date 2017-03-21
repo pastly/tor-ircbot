@@ -214,7 +214,11 @@ def save_config(filename):
         config.write(f)
 
 def server_out_process_read_event(fd, mask):
-    line = fd.readline().decode('utf8')
+    try:
+        line_ = fd.readline()
+        line = line_.decode('utf8')
+    except UnicodeDecodeError:
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -252,7 +256,11 @@ def server_out_process_read_event(fd, mask):
             speaker))
 
 def channel_out_process_read_event(fd, mask):
-    line = fd.readline().decode('utf8')
+    try:
+        line_ = fd.readline()
+        line = line_.decode('utf8')
+    except UnicodeDecodeError:
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -279,7 +287,11 @@ def channel_out_process_read_event(fd, mask):
             member_remove(speaker)
 
 def privmsg_out_process_read_event(fd, mask):
-    line = fd.readline().decode('utf8')
+    try:
+        line_ = fd.readline()
+        line = line_.decode('utf8')
+    except UnicodeDecodeError:
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]

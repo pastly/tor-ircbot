@@ -87,6 +87,28 @@ def set_update_members_interval(value):
 def get_update_members_interval():
     return update_members_event.interval
 
+# True if successful
+def set_enforce_highlight_spam(value):
+    if len(value) != 1:
+        log.warn('Ignoring enforce_highlight_spam: {}'.format(value))
+        return False
+    value = value[0]
+    try:
+        if value == 'True': value = True
+        elif value == 'False': value = False
+        else:
+            log.warn('Ignoring non-bool enforce_highlight_spam: {}'.format(
+                value))
+            return False
+    except (TypeError, ValueError):
+        log.warn('Ignoring non-bool enforce_highlight_spam: {}'.format(value))
+        return False
+    config['highlight_spam']['enabled'] = str(value)
+    return True
+
+def get_enforce_highlight_spam():
+    return config.getboolean('highlight_spam', 'enabled', fallback=False)
+
 # Each key is an option that can be set
 # Each value is a tuple of (func_to_set_opt, func_to_get_opt)
 #
@@ -101,6 +123,8 @@ options = {
     'mention_limit': (set_mention_limit, get_mention_limit),
     'update_members_interval':
         (set_update_members_interval, get_update_members_interval),
+    'enforce_highlight_spam':
+        (set_enforce_highlight_spam, get_enforce_highlight_spam),
 }
 
 def sigint(signum, stack_frame):
@@ -282,7 +306,7 @@ def channel_out_process_read_event(fd, mask):
     else:
         speaker = speaker[1:-1].lower()
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
-        if is_highlight_spam(words):
+        if get_enforce_highlight_spam() and is_highlight_spam(words):
             akick(speaker, 'highlight spam')
             member_remove(speaker)
 

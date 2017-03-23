@@ -242,7 +242,8 @@ def server_out_process_read_event(fd, mask):
         line_ = fd.readline()
         line = line_.decode('utf8')
     except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
+        return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -284,7 +285,8 @@ def channel_out_process_read_event(fd, mask):
         line_ = fd.readline()
         line = line_.decode('utf8')
     except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
+        return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -315,7 +317,8 @@ def privmsg_out_process_read_event(fd, mask):
         line_ = fd.readline()
         line = line_.decode('utf8')
     except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line))
+        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
+        return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]

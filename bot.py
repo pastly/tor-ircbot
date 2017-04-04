@@ -6,6 +6,7 @@ import subprocess
 import sys
 from configparser import ConfigParser
 from datetime import datetime
+from member import Member, MemberList
 from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
 from threading import Thread, Event
@@ -24,7 +25,7 @@ masters = ['pastly']
 
 is_shutting_down = Event()
 nick_prefixes = ['@','+']
-members = set()
+members = MemberList()
 server_dir = None
 channel_name = None
 ii_process = None
@@ -195,31 +196,27 @@ def contains_banned_word(words):
         if banned_word in words: return True
     return False
 
-def member_add(nick):
-    global members
+def member_add(nick, user=None, host=None):
     old_len = len(members)
-    members.add(nick.lower())
+    members.add(nick, user, host)
     if len(members) <= old_len:
         log.warn('Adding {} to members didn\'t increase length'.format(nick))
 
 def member_remove(nick):
-    global members
     old_len = len(members)
-    members.discard(nick.lower())
+    members.discard(nick)
     if len(members) >= old_len:
         log.warn('Removing {} from members didn\'t decrease length'.format(
             nick))
 
 def member_changed_nick(old_nick, new_nick):
-    global members
-    old_nick = old_nick.lower()
-    new_nick = new_nick.lower()
-    # we only want to add the new nick if the old nick was in our set
-    old_len = len(members)
-    member_remove(old_nick)
-    if len(members) < old_len:
-        member_add(new_nick)
-        log.debug('{} --> {}'.format(old_nick, new_nick))
+    member = members[old_nick]
+    if not member:
+        log.warn('Don\'t know about {}; can\'t change nick to {}'.format(
+            old_nick, new_nick))
+        return
+    member.set(nick=new_nick)
+    log.debug('{} --> {}'.format(old_nick, new_nick))
 
 def set_option(option, value):
     if option not in options:
@@ -296,8 +293,11 @@ def channel_out_process_read_event(fd, mask):
             member_remove(nick)
             log.debug('{} left ({})'.format(nick,len(members)))
         elif ' '.join(words[1:3]) == 'has joined':
-            nick = words[0].split('(')[0]
-            member_add(nick)
+            full_member = words[0]
+            nick = full_member.split('(')[0]
+            user = full_member.split('~')[1].split('@')[0]
+            host = full_member.split('@')[1].split(')')[0]
+            member_add(nick, user, host)
             log.debug('{} joined ({})'.format(nick,len(members)))
         else:
             log.warn('Ignoring unknown channel ctrl message: {}'.format(
@@ -369,7 +369,7 @@ def privmsg_out_process_read_event(fd, mask):
 def ask_for_new_members():
     global members
     log.debug('Clearing members set. Asking for members again')
-    members = set()
+    members = MemberList()
     with open('{}/in'.format(server_dir), 'w') as server_in:
         server_in.write('/names {}\n'.format(channel_name))
 

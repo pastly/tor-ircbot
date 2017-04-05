@@ -168,7 +168,7 @@ def is_highlight_spam(words):
     words = [ w for w in words if w not in common_words ]
     matches = set()
     # first try straight nick mentions with no prefix/suffix obfuscation
-    for match in [ w for w in words if w in members ]:
+    for match in [ w for w in words if members.contains(w) ]:
         matches.add(match)
     if len(matches) > get_mention_limit(): return True
     # then try removing leading/trailing punctuation from words and see if
@@ -176,7 +176,7 @@ def is_highlight_spam(words):
     punc = ''.join(non_nick_punctuation)
     for word in words:
         word = word.lstrip(punc).rstrip(punc)
-        if word in members: matches.add(word)
+        if members.contains(word): matches.add(word)
     log.debug("{} nicks mentioned".format(len(matches)))
     if len(matches) > get_mention_limit(): return True
     return False

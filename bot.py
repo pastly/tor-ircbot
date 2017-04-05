@@ -129,11 +129,6 @@ options = {
 }
 
 def sigint(signum, stack_frame):
-    global ii_process
-    global server_out_process
-    global channel_out_process
-    global privmsg_out_process
-    global update_members_event
     log.notice("Shutting down bot due to signal")
     is_shutting_down.set()
     if ii_process:
@@ -142,11 +137,7 @@ def sigint(signum, stack_frame):
     if server_out_process: server_out_process.terminate()
     if channel_out_process: channel_out_process.terminate()
     if privmsg_out_process: privmsg_out_process.terminate()
-    ii_process = None
-    server_out_process, channel_out_process = None, None
-    privmsg_out_process = None
     if update_members_event: update_members_event.stop()
-    update_members_event = None
     exit(0)
 
 def sighup(signum, stack_frame):

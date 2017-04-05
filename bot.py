@@ -7,7 +7,9 @@ import sys
 from configparser import ConfigParser
 from datetime import datetime
 from member import Member, MemberList
+from actionqueue import ActionQueue
 from pastlylogger import PastlyLogger
+from queue import PriorityQueue
 from repeatedtimer import RepeatedTimer
 from threading import Thread, Event
 
@@ -26,6 +28,7 @@ masters = ['pastly']
 is_shutting_down = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
+outbound_message_queue = ActionQueue(PriorityQueue(), max_speed=0.25)
 server_dir = None
 channel_name = None
 ii_process = None
@@ -47,6 +50,8 @@ common_words = \
 'look','only','come','its','over','thnk','also','back','after','use','two',
 'how','our','work','first','well','way','even','new','want','because','any',
 'these','give','day','most','us']
+
+threads = []
 
 non_nick_punctuation = [':',',','!','?']
 non_nick_punctuation.extend(nick_prefixes)
@@ -138,6 +143,7 @@ def sigint(signum, stack_frame):
     if channel_out_process: channel_out_process.terminate()
     if privmsg_out_process: privmsg_out_process.terminate()
     if update_members_event: update_members_event.stop()
+    outbound_message_queue.self_destruct()
     exit(0)
 
 def sighup(signum, stack_frame):
@@ -151,17 +157,20 @@ def privmsg(nick, message):
         server_in.write('/privmsg {} {}\n'.format(nick, message))
 
 def ping(nick):
-    return privmsg(nick, 'pong')
+    outbound_message_queue.add(privmsg, [nick, 'pong'])
 
 def akick(nick, reason=None):
     if not reason:
         log.notice('akicking {}'.format(nick))
-        privmsg('chanserv', 'akick {} add {}!*@*\n'.format(
-            channel_name, nick))
+        outbound_message_queue.add(privmsg, [
+            'pastly', 'akick {} add {}!*@*'.format(channel_name, nick)
+        ])
     else:
         log.notice('akicking {} for {}'.format(nick, reason))
-        privmsg('chanserv', 'akick {} add {}!*@* {}\n'.format(
-            channel_name, nick, reason))
+        outbound_message_queue.add(privmsg, [
+            'pastly', 'akick {} add {}!*@* {}'.format(
+            channel_name, nick, reason)
+        ])
 
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
@@ -301,7 +310,6 @@ def channel_out_process_read_event(fd, mask):
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if get_enforce_highlight_spam() and is_highlight_spam(words):
             akick(speaker, 'highlight spam')
-            member_remove(speaker)
 
 def privmsg_out_process_read_event(fd, mask):
     try:
@@ -365,7 +373,7 @@ def ask_for_new_members():
         server_in.write('/names {}\n'.format(channel_name))
 
 def update_members_event_callback():
-    ask_for_new_members()
+    outbound_message_queue.add(ask_for_new_members)
 
 def prepare_ircdir():
     os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
@@ -391,6 +399,14 @@ def ii_thread():
         if is_shutting_down.wait(5): break
     log.notice('Stopping ii process for good')
 
+def outbound_message_queue_thread():
+    if log: log.notice('Starting outbound message queue thread')
+    while True:
+        outbound_message_queue.process(timeout=1)
+        #outbound_message_queue.process()
+        if is_shutting_down.is_set(): break
+    log.notice('Stopping outbound message queue thread')
+
 def main():
     global server_dir
     global channel_name
@@ -403,8 +419,10 @@ def main():
     server_dir = os.path.join(config['ii']['ircdir'],config['ii']['server'])
     channel_name = config['ii']['channel']
 
-    t = Thread(target=ii_thread, name='ii watchdog')
-    t.start()
+    threads.append(Thread(target=ii_thread))
+    threads[-1].start()
+    threads.append(Thread(target=outbound_message_queue_thread))
+    threads[-1].start()
 
     # bufsize=1 means line-based buffering. Perfect for IRC :)
     server_out_process = subprocess.Popen(

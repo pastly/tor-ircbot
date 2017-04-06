@@ -9,11 +9,11 @@ from datetime import datetime
 from member import Member, MemberList
 from actionqueue import ActionQueue
 from pastlylogger import PastlyLogger
-from queue import PriorityQueue
 from repeatedtimer import RepeatedTimer
-from threading import Thread, Event
+from multiprocessing import Event, Process
 
-# TODO: enable/disable highlight spam detection
+# TODO: clearing member list doesn't work. Probably a multiprocess issue
+# TODO: make 'word in MemberList' work but having __iter__ return keys
 
 selector = selectors.DefaultSelector()
 log = None
@@ -28,14 +28,17 @@ masters = ['pastly']
 is_shutting_down = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
-outbound_message_queue = ActionQueue(PriorityQueue(), max_speed=0.25)
+outbound_message_queue = ActionQueue(time_between_actions=0.25)
 server_dir = None
 channel_name = None
-ii_process = None
 server_out_process = None
 channel_out_process = None
 privmsg_out_process = None
 update_members_event = None
+
+default_sigint = signal.getsignal(signal.SIGINT)
+default_sigterm = signal.getsignal(signal.SIGTERM)
+default_sighup = signal.getsignal(signal.SIGHUP)
 
 banned_words = \
 []
@@ -51,7 +54,7 @@ common_words = \
 'how','our','work','first','well','way','even','new','want','because','any',
 'these','give','day','most','us']
 
-threads = []
+processes = []
 
 non_nick_punctuation = [':',',','!','?']
 non_nick_punctuation.extend(nick_prefixes)
@@ -83,6 +86,7 @@ def set_update_members_interval(value):
         value = int(value)
     except (TypeError, ValueError):
         log.warn('Ignoring non-int update_members_interval: {}'.format(value))
+        return False
     if value <= 0: value = 0
     config['general']['update_members_interval'] = str(value)
     update_members_event.interval = value
@@ -133,17 +137,25 @@ options = {
         (set_enforce_highlight_spam, get_enforce_highlight_spam),
 }
 
+def set_ignore_signals():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
+def set_default_signals():
+    signal.signal(signal.SIGINT, default_sigint)
+    signal.signal(signal.SIGTERM, default_sigterm)
+    signal.signal(signal.SIGHUP, default_sighup)
+
+def set_our_signals():
+    signal.signal(signal.SIGINT, sigint)
+    signal.signal(signal.SIGTERM, sigint)
+    signal.signal(signal.SIGHUP, sighup)
+
 def sigint(signum, stack_frame):
     log.notice("Shutting down bot due to signal")
     is_shutting_down.set()
-    if ii_process:
-        try: ii_process.terminate()
-        except ProcessLookupError: pass
-    if server_out_process: server_out_process.terminate()
-    if channel_out_process: channel_out_process.terminate()
-    if privmsg_out_process: privmsg_out_process.terminate()
     if update_members_event: update_members_event.stop()
-    outbound_message_queue.self_destruct()
     exit(0)
 
 def sighup(signum, stack_frame):
@@ -153,6 +165,7 @@ def sighup(signum, stack_frame):
     log.flush()
 
 def privmsg(nick, message):
+    log.debug('/privmsg {} {}'.format(nick, message))
     with open(server_dir+'/in', 'w') as server_in:
         server_in.write('/privmsg {} {}\n'.format(nick, message))
 
@@ -294,9 +307,14 @@ def channel_out_process_read_event(fd, mask):
             log.debug('{} left ({})'.format(nick,len(members)))
         elif ' '.join(words[1:3]) == 'has joined':
             full_member = words[0]
-            nick = full_member.split('(')[0]
-            user = full_member.split('~')[1].split('@')[0]
-            host = full_member.split('@')[1].split(')')[0]
+            try:
+                nick = full_member.split('(')[0]
+                user = full_member.split('~')[1].split('@')[0]
+                host = full_member.split('@')[1].split(')')[0]
+            except IndexError:
+                log.error('Couldn\'t parse nick/user/host: {}'.format(
+                    full_member))
+                return
             member_add(nick, user, host)
             log.debug('{} joined ({})'.format(nick,len(members)))
         else:
@@ -378,9 +396,7 @@ def update_members_event_callback():
 def prepare_ircdir():
     os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
 
-def ii_thread():
-    global ii_process
-    assert not ii_process
+def ii_process():
     prepare_ircdir()
     ii_bin = config['ii']['path']
     nick = config['ii']['nick']
@@ -389,23 +405,39 @@ def ii_thread():
     server_pass = config['ii']['server_pass']
     ircdir = config['ii']['ircdir']
     while True:
-        if log: log.notice('(Re)Starting ii process')
-        ii_process = subprocess.Popen(
+        log.notice('(Re)Starting ii process')
+        set_default_signals()
+        ii = subprocess.Popen(
             [ii_bin,'-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
             env={'PASS': server_pass},
         )
-        ii_process.wait()
-        log.warn('ii process went away')
-        if is_shutting_down.wait(5): break
-    log.notice('Stopping ii process for good')
+        set_ignore_signals()
+        # the following loop continues until we are shutting down entirely or
+        # the ii sub-sub process goes away
+        while not is_shutting_down.wait(5):
+            # if we aren't shutting down and we have a return code,
+            # then we need to restart the process. First exit this loop
+            if ii.poll() != None:
+                log.debug('ii process went away')
+                break
+        # if we have a return code from the ii sub-sub process, we just exited
+        # the above loop and should restart this loop and thus restart the ii
+        # process.
+        if ii.poll() != None:
+            continue
+        # if we get to here, then we are shutting down and should just throw it
+        # all away.
+        if is_shutting_down.is_set():
+            log.notice('Stopping ii process for good')
+            ii.terminate()
+            break
 
-def outbound_message_queue_thread():
-    if log: log.notice('Starting outbound message queue thread')
-    while True:
-        outbound_message_queue.process(timeout=1)
-        #outbound_message_queue.process()
-        if is_shutting_down.is_set(): break
-    log.notice('Stopping outbound message queue thread')
+
+def outbound_message_queue_process():
+    log.notice('Starting outbound message queue process')
+    while not is_shutting_down.is_set():
+        outbound_message_queue.loop_once()
+    log.notice('Stopping outbound message queue process')
 
 def main():
     global server_dir
@@ -419,10 +451,23 @@ def main():
     server_dir = os.path.join(config['ii']['ircdir'],config['ii']['server'])
     channel_name = config['ii']['channel']
 
-    threads.append(Thread(target=ii_thread))
-    threads[-1].start()
-    threads.append(Thread(target=outbound_message_queue_thread))
-    threads[-1].start()
+    log = PastlyLogger(
+        debug='{}/{}/debug.log'.format(server_dir, channel_name),
+    )
+    log.notice("Starting up bot")
+
+    # ignore signals before starting the processes that we actually manage
+    # closely
+    set_ignore_signals()
+
+    processes.append(Process(target=ii_process))
+    processes[-1].start()
+    processes.append(Process(target=outbound_message_queue_process))
+    processes[-1].start()
+
+    # go back to our super special signals now that we are done starting our
+    # sub processes
+    set_our_signals()
 
     # bufsize=1 means line-based buffering. Perfect for IRC :)
     server_out_process = subprocess.Popen(
@@ -438,11 +483,6 @@ def main():
         server_dir,channel_name)],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
         bufsize=1)
-
-    log = PastlyLogger(
-        debug='{}/{}/debug.log'.format(server_dir, channel_name),
-    )
-    log.notice("Starting up bot")
 
     selector.register(server_out_process.stdout, selectors.EVENT_READ,
         server_out_process_read_event)
@@ -462,7 +502,4 @@ def main():
             callback(key.fileobj, mask)
 
 if __name__=='__main__':
-    signal.signal(signal.SIGINT, sigint)
-    signal.signal(signal.SIGTERM, sigint)
-    signal.signal(signal.SIGHUP, sighup)
     main()

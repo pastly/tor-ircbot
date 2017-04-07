@@ -16,7 +16,10 @@ from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
 
 # TODO: make 'word in MemberList' work but having __iter__ return keys
-# TODO: check delay issues with outbound message queue
+# TODO: make ActionQueue somehow take a function that, when called, returns the
+# amount of time that must pass between actions. This is to handle being allowed
+# to bust on IRC (5 burst, then every 0.5 secs on OFTC) (can burst a ton all at
+# once on OFTC, but if the IRCd queue hits 30, the bot will be disconnected).
 
 log = None
 
@@ -32,7 +35,7 @@ is_getting_members = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
 main_action_queue = ActionQueue()
-outbound_message_queue = ActionQueue(time_between_actions=0.25)
+outbound_message_queue = ActionQueue(time_between_actions=0.51)
 server_dir = None
 channel_name = None
 update_members_event = None

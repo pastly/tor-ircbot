@@ -21,8 +21,6 @@ class ActionQueue:
         self._long_timeout = 1.0
 
 
-    # - func is the function to call when handling this item
-    # - args are a list of arguments to pass to that function
     # This function should be called by the main process to add an action to
     # this process's priority queue through this inter-process FIFO.
     # - func is the function to call in this process

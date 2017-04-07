@@ -1,5 +1,5 @@
 import signal
-from time import sleep, time
+from time import time
 from queue import Empty, PriorityQueue
 from multiprocessing import Event, Process, Queue
 class ActionQueue:
@@ -8,17 +8,18 @@ class ActionQueue:
     # part) that must elapse between individual actions are processed out of
     # the priority queue. A time of 0 means no time must pass and to process
     # actions as quickly as possible.
-    def __init__(self, time_between_actions=0):
+    def __init__(self, time_between_actions=0, long_timeout=10):
         self._incoming_queue = Queue()
         self._action_queue = PriorityQueue()
         self._time_between_actions = time_between_actions
         # timestamp at which the last action was taken
         self._last_action = 0
-        # number of seconds to wait for a new action to come in via
-        # self.add(...) when we have no actions in the priority queue
-        # this also affects how quickly we exit loop_once when there's nothing
-        # to do, and thus how quickly we can react to shutting down
-        self._long_timeout = 1.0
+        # Number of seconds to wait for a new action to come in via
+        # self.add(...) when we have no actions in the priority queue.
+        # Too low, and we hurt CPU by abusively busy waiting.
+        # Too high, and we don't react to the controlling process wanting to
+        # shut down very quickly
+        self._long_timeout = long_timeout
 
 
     # This function should be called by the main process to add an action to

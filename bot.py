@@ -34,8 +34,8 @@ is_shutting_down = Event()
 is_getting_members = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
-main_action_queue = ActionQueue()
-outbound_message_queue = ActionQueue(time_between_actions=0.51)
+main_action_queue = ActionQueue(long_timeout=60)
+outbound_message_queue = ActionQueue(time_between_actions=0.51, long_timeout=5)
 server_dir = None
 channel_name = None
 update_members_event = None
@@ -157,6 +157,9 @@ def set_our_signals():
     signal.signal(signal.SIGHUP, sighup)
 
 def sigint(signum, stack_frame):
+    print('Shutting down cleanly due to signal. Some processes might take '
+        'a few seconds to fully quit.\n'
+        'Wait a minute before forcfully killing us. :( It could be messy')
     log.notice("Shutting down bot due to signal")
     is_shutting_down.set()
     if update_members_event: update_members_event.stop()

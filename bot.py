@@ -4,18 +4,20 @@ import os
 import signal
 import subprocess
 import sys
+# python stuff
 from configparser import ConfigParser
 from datetime import datetime
-from member import Member, MemberList
+from multiprocessing import Event, Process
+from threading import Timer
+# custom stuff
 from actionqueue import ActionQueue
+from member import Member, MemberList
 from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
-from multiprocessing import Event, Process
 
-# TODO: clearing member list doesn't work. Probably a multiprocess issue
 # TODO: make 'word in MemberList' work but having __iter__ return keys
+# TODO: check delay issues with outbound message queue
 
-selector = selectors.DefaultSelector()
 log = None
 
 config_file = 'config.ini'
@@ -26,14 +28,13 @@ config.read(config_file)
 masters = ['pastly']
 
 is_shutting_down = Event()
+is_getting_members = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
+main_action_queue = ActionQueue()
 outbound_message_queue = ActionQueue(time_between_actions=0.25)
 server_dir = None
 channel_name = None
-server_out_process = None
-channel_out_process = None
-privmsg_out_process = None
 update_members_event = None
 
 default_sigint = signal.getsignal(signal.SIGINT)
@@ -159,11 +160,11 @@ def sigint(signum, stack_frame):
     exit(0)
 
 def sighup(signum, stack_frame):
-    if server_out_process: server_out_process.stdout.flush()
-    if channel_out_process: channel_out_process.stdout.flush()
-    if privmsg_out_process: privmsg_out_process.stdout.flush()
-    log.flush()
+    #for p in processes: p.stdout.flush()
+    #log.flush()
+    pass
 
+# should only be called from outbound_message_queue
 def privmsg(nick, message):
     log.debug('/privmsg {} {}'.format(nick, message))
     with open(server_dir+'/in', 'w') as server_in:
@@ -212,6 +213,7 @@ def contains_banned_word(words):
 def member_add(nick, user=None, host=None):
     old_len = len(members)
     members.add(nick, user, host)
+    log.debug('Adding {} to members list ({})'.format(nick, len(members)))
     if len(members) <= old_len:
         log.warn('Adding {} to members didn\'t increase length'.format(nick))
 
@@ -247,13 +249,9 @@ def save_config(filename):
     with open(filename, 'w') as f:
         config.write(f)
 
-def server_out_process_read_event(fd, mask):
-    try:
-        line_ = fd.readline()
-        line = line_.decode('utf8')
-    except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
-        return
+# must be called from the main process
+def server_out_process_line(line):
+    if not len(line): return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -265,38 +263,24 @@ def server_out_process_read_event(fd, mask):
         elif ' '.join(words[1:3]) == 'has quit':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            log.debug('{} quit ({})'.format(nick,len(members)))
+            log.info('{} quit ({})'.format(nick,len(members)))
         else:
-            log.warn('Ignorning unknown server ctrl message: {}'.format(
+            log.debug('Ignorning unknown server ctrl message: {}'.format(
                 ' '.join(words)))
-    elif speaker in ['@','=']:
-        if words[0] == channel_name:
-            for w in words[1:]:
-                if w[0] in nick_prefixes: member_add(w[1:])
-                else: member_add(w)
-            log.debug('Got {} more names. {} total'.format(len(words[1:]),
-                len(members)))
     elif speaker == channel_name:
-        # this is __probably__ just telling us we've reached the end of the
-        # /NAMES list, but since I don't know what's going to get added after
-        # 6 months after writing this comment, I think logging in this condition
-        # would be smart
-        if ' '.join(words) == 'End of /NAMES list.':
-            pass
-        else:
-            log.debug('Ignoring unrecognized server ctrl message coming from '+
-                '{}: {}'.format(channel_name, ' '.join(words)))
+        if ' '.join(words) == 'End of /WHO list.':
+            is_getting_members.clear()
+        elif len(words) >= 7 and is_getting_members.is_set():
+            # should be output from a /WHO #channel_name query
+            user, host, server, nick, unknown1, unknown2 = words[0:6]
+            member_add(nick, user=user, host=host)
     else:
-        log.warn('Ignoring server ctrl message with unknown speaker: {}'.format(
+        log.debug('Ignoring server ctrl message with unknown speaker: {}'.format(
             speaker))
 
-def channel_out_process_read_event(fd, mask):
-    try:
-        line_ = fd.readline()
-        line = line_.decode('utf8')
-    except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
-        return
+# must be called from the main process
+def channel_out_process_line(line):
+    if not len(line): return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -304,21 +288,21 @@ def channel_out_process_read_event(fd, mask):
         if ' '.join(words[1:3]) == 'has left':
             nick = words[0].split('(')[0]
             member_remove(nick)
-            log.debug('{} left ({})'.format(nick,len(members)))
+            log.info('{} left ({})'.format(nick,len(members)))
         elif ' '.join(words[1:3]) == 'has joined':
             full_member = words[0]
             try:
                 nick = full_member.split('(')[0]
-                user = full_member.split('~')[1].split('@')[0]
+                user = full_member.split('(')[1].split('@')[0]
                 host = full_member.split('@')[1].split(')')[0]
             except IndexError:
                 log.error('Couldn\'t parse nick/user/host: {}'.format(
                     full_member))
                 return
             member_add(nick, user, host)
-            log.debug('{} joined ({})'.format(nick,len(members)))
+            log.info('{} joined ({})'.format(nick,len(members)))
         else:
-            log.warn('Ignoring unknown channel ctrl message: {}'.format(
+            log.debug('Ignoring unknown channel ctrl message: {}'.format(
                 ' '.join(words)))
     elif speaker[0] != '<' or speaker[-1] != '>':
         log.debug('Ignoring channel message with weird speaker: {}'.format(
@@ -329,13 +313,9 @@ def channel_out_process_read_event(fd, mask):
         if get_enforce_highlight_spam() and is_highlight_spam(words):
             akick(speaker, 'highlight spam')
 
-def privmsg_out_process_read_event(fd, mask):
-    try:
-        line_ = fd.readline()
-        line = line_.decode('utf8')
-    except UnicodeDecodeError:
-        log.warn('Can\'t decode line, so ignoring: "{}" '.format(line_))
-        return
+# must be called from the main process
+def privmsg_out_process_line(line):
+    if not len(line): return
     tokens = line.split()
     speaker = tokens[2]
     words = tokens[3:]
@@ -347,7 +327,7 @@ def privmsg_out_process_read_event(fd, mask):
         log.warn('Ignoring privmsg from non-master: {}'.format(speaker))
         return
     if ' '.join(words) == 'ping':
-        log.debug('master {} pinged us'.format(speaker))
+        log.info('master {} pinged us'.format(speaker))
         ping(speaker)
     elif words[0] == 'set':
         if len(words) < 3:
@@ -367,9 +347,10 @@ def privmsg_out_process_read_event(fd, mask):
                 speaker, ' '.join(words)))
             return
         value = get_option(words[1])
-        privmsg(speaker, '{} is {}'.format(words[1], value))
+        outbound_message_queue.add(privmsg,
+            [speaker, '{} is {}'.format(words[1], value)])
     elif words[0] == 'options':
-        privmsg(speaker, ' '.join(options))
+        outbound_message_queue.add(privmsg, [speaker, ' '.join(options)])
     elif words[0] == 'save':
         if len(words) != 2:
             log.warn('Ignoring bad save cmomand from {}: {}'.format(
@@ -377,25 +358,32 @@ def privmsg_out_process_read_event(fd, mask):
             return
         if words[1] == 'config':
             save_config(config_file)
-            privmsg(speaker,'saved config')
+            outbound_message_queue.add(privmsg, [speaker, 'saved config'])
             log.notice('{} saved config to {}'.format(speaker, config_file))
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))
 
+# should only be called from outbound_message_queue
 def ask_for_new_members():
-    global members
     log.debug('Clearing members set. Asking for members again')
-    members = MemberList()
+    is_getting_members.set()
     with open('{}/in'.format(server_dir), 'w') as server_in:
-        server_in.write('/names {}\n'.format(channel_name))
+        server_in.write('/who {}\n'.format(channel_name))
 
+# Must be called from the main process so the correct copy of members is updated
+# a RepeatedTimer calls this every now and then, and it runs in a thread of the
+# main process. It can be called manually, but you must do so from the main
+# process.
 def update_members_event_callback():
+    global members
+    members = MemberList()
     outbound_message_queue.add(ask_for_new_members)
 
 def prepare_ircdir():
     os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
 
+# governing function for a subprocess to watch over a sub-subprocess running ii
 def ii_process():
     prepare_ircdir()
     ii_bin = config['ii']['path']
@@ -432,19 +420,41 @@ def ii_process():
             ii.terminate()
             break
 
-
+# governing function for a subprocess to manage a queue of messages to send to
+# the IRCd
 def outbound_message_queue_process():
     log.notice('Starting outbound message queue process')
     while not is_shutting_down.is_set():
         outbound_message_queue.loop_once()
     log.notice('Stopping outbound message queue process')
 
+# governing function for a subprocess to tail a file in a sub-subprocess.
+# To do the actual processing of the line, schedule the given function handler
+# for execution in the main process with the line as an argument
+def tail_file_process(filename, line_function_handler):
+    log.notice('Starting process to tail {}'.format(filename))
+    set_default_signals()
+    # universal_newlines=True to get text mode
+    # bufsize=1 to get line-based buffering
+    sub = subprocess.Popen(
+        ['tail','-F','-n','0',filename],
+        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        universal_newlines=True, bufsize=1)
+    set_ignore_signals()
+    while not is_shutting_down.is_set():
+        line = sub.stdout.readline()
+        main_action_queue.add(line_function_handler, args=[line])
+    sub.terminate()
+    log.notice('Stopping process to tail {}'.format(filename))
+
+# must be called from the main process
+# call a function in a thread of the main process in interval seconds
+def fire_one_off_event(interval, func, args=None):
+    Timer(interval, func, args=args).start()
+
 def main():
     global server_dir
     global channel_name
-    global server_out_process
-    global channel_out_process
-    global privmsg_out_process
     global update_members_event
     global log
 
@@ -461,45 +471,33 @@ def main():
     set_ignore_signals()
 
     processes.append(Process(target=ii_process))
-    processes[-1].start()
     processes.append(Process(target=outbound_message_queue_process))
-    processes[-1].start()
+
+    processes.append(Process(target=tail_file_process,
+        args=['{}/out'.format(server_dir),
+        server_out_process_line]))
+    processes.append(Process(target=tail_file_process,
+        args=['{}/{}/out'.format(server_dir, channel_name),
+        channel_out_process_line]))
+    processes.append(Process(target=tail_file_process,
+        args=['{}/pastly_bot/out'.format(server_dir),
+        privmsg_out_process_line]))
+
+    for p in processes: p.start()
 
     # go back to our super special signals now that we are done starting our
     # sub processes
     set_our_signals()
 
-    # bufsize=1 means line-based buffering. Perfect for IRC :)
-    server_out_process = subprocess.Popen(
-        ['tail','-F','-n','0','{}/out'.format(server_dir)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        bufsize=1)
-    channel_out_process = subprocess.Popen(
-        ['tail','-F','-n','0','{}/{}/out'.format(server_dir,channel_name)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        bufsize=1)
-    privmsg_out_process = subprocess.Popen(
-        ['tail','-F','-n','0','{}/pastly_bot/out'.format(
-        server_dir,channel_name)],
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        bufsize=1)
-
-    selector.register(server_out_process.stdout, selectors.EVENT_READ,
-        server_out_process_read_event)
-    selector.register(channel_out_process.stdout, selectors.EVENT_READ,
-        channel_out_process_read_event)
-    selector.register(privmsg_out_process.stdout, selectors.EVENT_READ,
-        privmsg_out_process_read_event)
+    fire_one_off_event(5, update_members_event_callback)
 
     update_members_event = RepeatedTimer(
         config.getint('general', 'update_members_interval', fallback=60*60*8),
         update_members_event_callback)
 
     while True:
-        events = selector.select()
-        for key, mask in events:
-            callback = key.data
-            callback(key.fileobj, mask)
+        main_action_queue.loop_once()
+
 
 if __name__=='__main__':
     main()

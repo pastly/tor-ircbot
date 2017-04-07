@@ -1,5 +1,5 @@
 from datetime import datetime
-from threading import Lock
+from multiprocessing import Lock
 class PastlyLogger:
     def __init__(self, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
@@ -54,19 +54,19 @@ class PastlyLogger:
         self.error_fd, self.warn_fd = None, None
         self.notice_fd, self.info_fd, self.debug_fd = None, None, None
         if self.error_fd_mutex:
-            if self.error_fd_mutex.locked():
+            if not self.error_fd_mutex.acquire(block=False):
                 self.error_fd_mutex.release()
         if self.warn_fd_mutex:
-            if self.warn_fd_mutex.locked():
+            if not self.warn_fd_mutex.acquire(block=False):
                 self.warn_fd_mutex.release()
         if self.notice_fd_mutex:
-            if self.notice_fd_mutex.locked():
+            if not self.notice_fd_mutex.acquire(block=False):
                 self.notice_fd_mutex.release()
         if self.info_fd_mutex:
-            if self.info_fd_mutex.locked():
+            if not self.info_fd_mutex.acquire(block=False):
                 self.info_fd_mutex.release()
         if self.debug_fd_mutex:
-            if self.debug_fd_mutex.locked():
+            if not self.debug_fd_mutex.acquire(block=False):
                 self.debug_fd_mutex.release()
 
     def _log_file(fd, lock, s, level):

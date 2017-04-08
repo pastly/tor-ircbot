@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-import selectors
 import os
 import signal
 import subprocess
-import sys
 # python stuff
 from configparser import ConfigParser
-from datetime import datetime
 from multiprocessing import Event, Process
 from threading import Timer
 # custom stuff
@@ -440,15 +437,22 @@ def outbound_message_queue_process():
 def tail_file_process(filename, line_function_handler):
     log.notice('Starting process to tail {}'.format(filename))
     set_default_signals()
-    # universal_newlines=True to get text mode
     # bufsize=1 to get line-based buffering
+    # universal_newlines=True would get us text mode, but someone out there has
+    # non-unicode bytes in their away message. To handle crap like that, we just
+    # get the bytes, and try to convert to a string afterwards.
     sub = subprocess.Popen(
         ['tail','-F','-n','0',filename],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        universal_newlines=True, bufsize=1)
+        bufsize=1)
     set_ignore_signals()
     while not is_shutting_down.is_set():
-        line = sub.stdout.readline()
+        line_ = sub.stdout.readline()
+        try:
+            line = line_.decode('utf8')
+        except UnicodeDecodeError:
+            log.warn('Can\'t decode line, so ignoring: {}'.format(line_))
+            continue
         main_action_queue.add(line_function_handler, args=[line])
     sub.terminate()
     log.notice('Stopping process to tail {}'.format(filename))

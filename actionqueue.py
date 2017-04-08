@@ -21,7 +21,6 @@ class ActionQueue:
         # shut down very quickly
         self._long_timeout = long_timeout
 
-
     # This function should be called by the main process to add an action to
     # this process's priority queue through this inter-process FIFO.
     # - func is the function to call in this process

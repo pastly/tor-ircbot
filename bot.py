@@ -329,43 +329,48 @@ def privmsg_out_process_line(line):
     if speaker not in masters:
         log.warn('Ignoring privmsg from non-master: {}'.format(speaker))
         return
-    if ' '.join(words) == 'ping':
+    if ' '.join(words).lower() == 'ping':
         log.info('master {} pinged us'.format(speaker))
-        ping(speaker)
-    elif words[0] == 'set':
+        outbound_message_queue.add(ping, [speaker])
+        return
+    elif words[0].lower() == 'set':
         if len(words) < 3:
-            log.warn('Ignoring bad set command from {}: {}'.format(
-                speaker, ' '.join(words)))
+            outbound_message_queue.add(privmsg,
+                [speaker, 'set <option> <value>'])
             return
         if not set_option(words[1], words[2:]):
-            privmsg(speaker, 'Failed to set {} to {}'.format(
-                words[1], ' '.join(words[2:])))
+            outbound_message_queue.add(privmsg, [speaker,
+                'Failed to set {} to {}'.format(words[1], ' '.join(words[2:]))])
+            return
         else:
             log.notice('{} set {} to {}'.format(
                 speaker, words[1], ' '.join(words[2:])))
-            privmsg(speaker, '{} is {}'.format(words[1], get_option(words[1])))
-    elif words[0] == 'get':
+            outbound_message_queue.add(privmsg,
+                [speaker, '{} is {}'.format(words[1], get_option(words[1]))])
+            return
+    elif words[0].lower() == 'get':
         if len(words) != 2:
-            log.warn('Ignoring bad get command from {}: {}'.format(
-                speaker, ' '.join(words)))
+            outbound_message_queue.add(privmsg, [speaker, 'get <option>'])
             return
         value = get_option(words[1])
         outbound_message_queue.add(privmsg,
             [speaker, '{} is {}'.format(words[1], value)])
-    elif words[0] == 'options':
+        return
+    elif words[0].lower() == 'options':
         outbound_message_queue.add(privmsg, [speaker, ' '.join(options)])
-    elif words[0] == 'save':
+    elif words[0].lower() == 'save':
         if len(words) != 2:
-            log.warn('Ignoring bad save cmomand from {}: {}'.format(
-                speaker, ' '.join(words)))
+            outbound_message_queue.add(privmsg, [speaker, 'save config'])
             return
-        if words[1] == 'config':
+        if words[1].lower() == 'config':
             save_config(config_file)
             outbound_message_queue.add(privmsg, [speaker, 'saved config'])
             log.notice('{} saved config to {}'.format(speaker, config_file))
+        return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))
+        return
 
 # should only be called from outbound_message_queue
 def ask_for_new_members():

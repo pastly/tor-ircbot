@@ -367,6 +367,51 @@ def privmsg_out_process_line(line):
             outbound_message_queue.add(privmsg, [speaker, 'saved config'])
             log.notice('{} saved config to {}'.format(speaker, config_file))
         return
+    elif words[0].lower() == 'match':
+        if len(words) != 3:
+            outbound_message_queue.add(privmsg, [speaker,
+                'match <nick> <\'user\'|\'host\'|\'both\'>'])
+            return
+        nick = words[1]
+        if not members.contains(nick):
+            outbound_message_queue.add(privmsg,
+                [speaker, '{} not in members'.format(nick)])
+            log.info('{} asked to match {}, but couldn\'t find nick'.format(
+                speaker, nick))
+            return
+        search_user, search_host = False, False
+        if words[2].lower() == 'user': search_user = True
+        elif words[2].lower() == 'host': search_host = True
+        elif words[2].lower() == 'both': search_user, search_host = True, True
+        if not search_user and not search_host:
+            outbound_message_queue.add(privmsg,
+                [speaker, 'need to match {}\'s user, host, or both'.format(
+                nick)])
+            return
+        omq = outbound_message_queue
+        if search_user:
+            user = members[nick]._user
+            matches = members.matches(user=user)
+            matches = [ m for m in matches if m._nick.lower() != nick.lower() ]
+            if len(matches) < 1:
+                omq.add(privmsg, [speaker, 'Just {}'.format(members[nick])])
+            else:
+                omq.add(privmsg,
+                    [speaker, 'Members matching {}\'s user:'.format(nick)])
+                for m in matches:
+                    omq.add(privmsg, [speaker, '\t{}'.format(m)])
+        if search_host:
+            host = members[nick]._host
+            matches = members.matches(host=host)
+            matches = [ m for m in matches if m._nick.lower() != nick.lower() ]
+            if len(matches) < 1:
+                omq.add(privmsg, [speaker, 'Just {}'.format(members[nick])])
+            else:
+                omq.add(privmsg,
+                    [speaker, 'Members matching {}\'s host:'.format(nick)])
+                for m in matches:
+                    omq.add(privmsg, [speaker, '\t{}'.format(m)])
+        return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))

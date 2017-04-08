@@ -93,3 +93,20 @@ class MemberList:
         for m in self:
             if m._nick.lower() == nick: return m
         return None
+
+    def matches(self, user=None, host=None):
+        assert user != None or host != None
+        matching_users = []
+        matching_hosts = []
+        if user: user = user.lower()
+        if host: host = host.lower()
+        for m in self:
+            if user and m._user.lower() == user:
+                matching_users.append(m)
+            if host and m._host.lower() == host:
+                matching_hosts.append(m)
+        if user and host:
+            return matching_users, match_hosts
+        if user:
+            return matching_users
+        return matching_hosts

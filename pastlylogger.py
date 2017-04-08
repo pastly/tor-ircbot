@@ -1,6 +1,21 @@
 from datetime import datetime
 from multiprocessing import Lock
+# Logging class inspired by Tor's logging API
 class PastlyLogger:
+    # error, warn, etc. are file names to open for logging.
+    # If a log level doesn't have a file name given for it, messages destined
+    # for that level cascade down to the next noisiest level.
+    # Example 1: warn=foo.txt, debug=bar.txt
+    #   error and warn messages go to foo.txt, all other messages to bar.txt
+    # Example 2: notice=baz.txt
+    #   error, warn, and notice messages go to baz.txt, all others are lost
+    #
+    # overwrite is a list of log levels that should overwrite their log file
+    # when opening instead of appending.
+    # Example: notice=a.txt, info=b.txt, overwrite=['info']
+    #   error, warn, and notice messages are appended to a.txt;
+    #   b.txt is overwritten and info messages are appended to it;
+    #   all debug messages are lost
     def __init__(self, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
 

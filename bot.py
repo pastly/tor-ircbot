@@ -216,7 +216,6 @@ def contains_banned_word(words):
 def member_add(nick, user=None, host=None):
     old_len = len(members)
     members.add(nick, user, host)
-    log.debug('Adding {} to members list ({})'.format(nick, len(members)))
     if len(members) <= old_len:
         log.warn('Adding {} to members didn\'t increase length'.format(nick))
 
@@ -277,6 +276,7 @@ def server_out_process_line(line):
             # should be output from a /WHO #channel_name query
             user, host, server, nick, unknown1, unknown2 = words[0:6]
             member_add(nick, user=user, host=host)
+            log.info('Adding {} ({})'.format(nick, len(members)))
     else:
         log.debug('Ignoring server ctrl message with unknown speaker: {}'.format(
             speaker))

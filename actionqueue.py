@@ -53,9 +53,6 @@ class ActionQueue:
             if item != None:
                 # item comes in as (priority, (func, [argA, argB]) )
                 func, args = item[1]
-                #item = item[1]
-                #func = item[0]
-                #args = item[1]
                 if args == None: func()
                 else: func(*args)
                 self._last_action = time()

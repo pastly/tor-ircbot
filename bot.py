@@ -169,7 +169,7 @@ def sighup(signum, stack_frame):
 
 # should only be called from outbound_message_queue
 def privmsg(nick, message):
-    log.debug('/privmsg {} {}'.format(nick, message))
+    #log.debug('/privmsg {} {}'.format(nick, message))
     with open(server_dir+'/in', 'w') as server_in:
         server_in.write('/privmsg {} {}\n'.format(nick, message))
 
@@ -180,12 +180,12 @@ def akick(nick, reason=None):
     if not reason:
         log.notice('akicking {}'.format(nick))
         outbound_message_queue.add(privmsg, [
-            'pastly', 'akick {} add {}!*@*'.format(channel_name, nick)
+            'chanserv', 'akick {} add {}!*@*'.format(channel_name, nick)
         ])
     else:
         log.notice('akicking {} for {}'.format(nick, reason))
         outbound_message_queue.add(privmsg, [
-            'pastly', 'akick {} add {}!*@* {}'.format(
+            'chanserv', 'akick {} add {}!*@* {}'.format(
             channel_name, nick, reason)
         ])
 

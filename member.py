@@ -78,18 +78,18 @@ class MemberList:
 
     def __contains_user(self, user):
         user = user.lower()
-        for m in self._members:
+        for m in self:
             if m._user.lower() == user: return m
         return False
 
     def __contains_host(self, host):
         host = host.lower()
-        for m in self._members:
+        for m in self:
             if m._host.lower() == host: return m
         return False
 
     def __getitem__(self, nick):
         nick = nick.lower()
-        for m in self._members:
+        for m in self:
             if m._nick.lower() == nick: return m
         return None

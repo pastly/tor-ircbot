@@ -412,6 +412,18 @@ def privmsg_out_process_line(line):
                 for m in matches:
                     omq.add(privmsg, [speaker, '\t{}'.format(m)])
         return
+    elif words[0].lower() == 'info':
+        if len(words) != 2:
+            outbound_message_queue.add(privmsg, [speaker, 'info <nick>'])
+            return
+        nick = words[1]
+        member = members[nick]
+        if not member:
+            outbound_message_queue.add(privmsg,
+                [speaker, '{} not found'.format(nick)])
+            return
+        outbound_message_queue.add(privmsg, [speaker, member])
+        return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))

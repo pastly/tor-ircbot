@@ -1,11 +1,11 @@
 class Member:
     def __init__(self, nick, user=None, host=None):
-        self._nick = nick
-        self._user = user
-        self._host = host
+        self.nick = nick
+        self.user = user
+        self.host = host
 
     def __str__(self):
-        return '{}!{}@{}'.format(self._nick, self._user, self._host)
+        return '{}!{}@{}'.format(self.nick, self.user, self.host)
 
     def set(self, nick=None, user=None, host=None):
         if nick: self.__set_nick(nick)
@@ -13,13 +13,13 @@ class Member:
         if host: self.__set_host(host)
 
     def __set_nick(self, nick):
-        self._nick = nick
+        self.nick = nick
 
     def __set_user(self, user):
-        self._user = user
+        self.user = user
 
     def __set_host(self, host):
-        self._host = host
+        self.host = host
 
 class MemberList:
     def __init__(self):
@@ -84,19 +84,19 @@ class MemberList:
     def __contains_user(self, user):
         user = user.lower()
         for m in self:
-            if m._user.lower() == user: return m
+            if m.user.lower() == user: return m
         return False
 
     def __contains_host(self, host):
         host = host.lower()
         for m in self:
-            if m._host.lower() == host: return m
+            if m.host.lower() == host: return m
         return False
 
     def __getitem__(self, nick):
         nick = nick.lower()
         for m in self:
-            if m._nick.lower() == nick: return m
+            if m.nick.lower() == nick: return m
         return None
 
     def matches(self, user=None, host=None):
@@ -106,9 +106,9 @@ class MemberList:
         if user: user = user.lower()
         if host: host = host.lower()
         for m in self:
-            if user and m._user.lower() == user:
+            if user and m.user.lower() == user:
                 matching_users.append(m)
-            if host and m._host.lower() == host:
+            if host and m.host.lower() == host:
                 matching_hosts.append(m)
         if user and host:
             return matching_users, match_hosts

@@ -393,9 +393,9 @@ def privmsg_out_process_line(line):
             return
         omq = outbound_message_queue
         if search_user:
-            user = members[nick]._user
+            user = members[nick].user
             matches = members.matches(user=user)
-            matches = [ m for m in matches if m._nick.lower() != nick.lower() ]
+            matches = [ m for m in matches if m.nick.lower() != nick.lower() ]
             if len(matches) < 1:
                 omq.add(privmsg, [speaker, 'Just {}'.format(members[nick])])
             else:
@@ -404,9 +404,9 @@ def privmsg_out_process_line(line):
                 for m in matches:
                     omq.add(privmsg, [speaker, '\t{}'.format(m)])
         if search_host:
-            host = members[nick]._host
+            host = members[nick].host
             matches = members.matches(host=host)
-            matches = [ m for m in matches if m._nick.lower() != nick.lower() ]
+            matches = [ m for m in matches if m.nick.lower() != nick.lower() ]
             if len(matches) < 1:
                 omq.add(privmsg, [speaker, 'Just {}'.format(members[nick])])
             else:

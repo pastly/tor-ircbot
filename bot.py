@@ -6,6 +6,7 @@ import subprocess
 from configparser import ConfigParser
 from multiprocessing import Event, Process
 from threading import Timer
+from time import time
 # custom stuff
 from actionqueue import ActionQueue
 from member import Member, MemberList
@@ -482,6 +483,14 @@ def privmsg_out_process_line(line):
             speaker, ' '.join(words)))
         return
 
+# must be called from the main process
+def log_to_masters(string):
+    string = str(string)
+    if not len(string): return
+    if string[-1] == '\n': string = string[:-1]
+    for m in masters:
+        outbound_message_queue.add(privmsg, [m, string], priority=time()+60)
+
 # should only be called from outbound_message_queue
 def ask_for_new_members():
     log.debug('Clearing members set. Asking for members again')
@@ -588,6 +597,7 @@ def main():
 
     log = PastlyLogger(
         debug='{}/{}/debug.log'.format(server_dir, channel_name),
+        #notice='{}/log_to_masters'.format(server_dir),
     )
     log.notice("Starting up bot")
 
@@ -607,6 +617,9 @@ def main():
     processes.append(Process(target=tail_file_process,
         args=['{}/pastly_bot/out'.format(server_dir),
         privmsg_out_process_line]))
+    processes.append(Process(target=tail_file_process,
+        args=['{}/log_to_masters'.format(server_dir),
+        log_to_masters]))
 
     for p in processes: p.start()
 

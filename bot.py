@@ -427,6 +427,56 @@ def privmsg_out_process_line(line):
             return
         outbound_message_queue.add(privmsg, [speaker, member])
         return
+    elif words[0].lower() == 'mode':
+        if len(words) != 2 and len(words) != 3:
+            outbound_message_queue.add(privmsg,
+                [speaker, 'mode <+|-><R|l|i> [var]'])
+            return
+        flag = words[1]
+        arg = None
+        if len(words) == 3: arg = words[2]
+        # Generic sanity check
+        if len(flag) != 2 or flag[0] not in ['+', '-'] or \
+            flag[1] not in ['R', 'l', 'i']:
+            outbound_message_queue.add(privmsg,
+                [speaker, 'Invalid mode command'])
+            return
+        # Make sure most flags don't have an argument
+        if flag[1] in ['R', 'i'] and arg != None:
+            outbound_message_queue.add(privmsg,
+                [speaker, '{} can\'t have arg'])
+            return
+        # +l requires an argument
+        if flag == '+l' and arg == None:
+            outbound_message_queue.add(privmsg,
+                [speaker, '+l requires int arg'])
+            return
+        # +l's argument must be an int
+        elif flag == '+l':
+            try: arg = int(arg)
+            except (TypeError, ValueError):
+                outbound_message_queue.add(privmsg,
+                    [speaker, '+l requires int arg'])
+                return
+        # -l can't have an argument
+        if flag == '-l' and arg != None:
+            outbound_message_queue.add(privmsg, [speaker, '-l can\'t have arg'])
+            return
+        # condense flag (and arg) into command
+        if arg != None: command = '{} {}'.format(flag, arg)
+        else: command = flag
+        # send it!
+        outbound_message_queue.add(privmsg,
+            ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')])
+        outbound_message_queue.add(servmsg,
+            ['/mode {} {}'.format(channel_name, command)])
+        outbound_message_queue.add(privmsg,
+            ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
+        # log it!
+        log.notice('{} set mode {}'.format(speaker, command))
+        outbound_message_queue.add(privmsg, [speaker,
+            'sent: /mode {} {}'.format(channel_name, command)])
+        return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
             speaker, ' '.join(words)))

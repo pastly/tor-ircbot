@@ -168,10 +168,13 @@ def sighup(signum, stack_frame):
     pass
 
 # should only be called from outbound_message_queue
+def servmsg(message):
+    with open(server_dir+'/in', 'w') as server_in:
+        server_in.write('{}\n'.format(message))
+
 def privmsg(nick, message):
     #log.debug('/privmsg {} {}'.format(nick, message))
-    with open(server_dir+'/in', 'w') as server_in:
-        server_in.write('/privmsg {} {}\n'.format(nick, message))
+    servmsg('/privmsg {} {}'.format(nick, message))
 
 def ping(nick):
     outbound_message_queue.add(privmsg, [nick, 'pong'])

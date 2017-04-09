@@ -25,6 +25,7 @@ class ActionQueue:
     # this process's priority queue through this inter-process FIFO.
     # - func is the function to call in this process
     # - args is an optional list of arguments to pass to the function
+    # - kwargs is an optional dictionary of arguments to pass to the function
     # - priority is ... the priority. Obviously. This is a min-priority queue.
     #   thus a smaller priority means a "better" priority and that item should
     #   be handled more quickly. By default, priority is the current time (in
@@ -33,9 +34,9 @@ class ActionQueue:
     #   priority to time()-5. To put something in with upmost priority, add it
     #   with priority == 0. If you never specify a priority, then this structure
     #   is essentially a FIFO queue in its own process.
-    def add(self, func, args=None, priority=None):
+    def add(self, func, args=None, kwargs=None, priority=None):
         if priority == None: priority = time()
-        self._incoming_queue.put( (priority, (func, args)) )
+        self._incoming_queue.put( (priority, (func, args, kwargs)) )
 
     def __process_incoming_queue(self, timeout):
         try: item = self._incoming_queue.get(timeout=timeout)
@@ -51,10 +52,12 @@ class ActionQueue:
             except Empty: item = None
             # if we got one, then handle it
             if item != None:
-                # item comes in as (priority, (func, [argA, argB]) )
-                func, args = item[1]
-                if args == None: func()
-                else: func(*args)
+                # item comes in as (priority, (func, args=[], kwargs={}) )
+                func, args, kwargs = item[1]
+                if args == None and kwargs == None: func()
+                elif args and kwargs == None: func(*args)
+                elif kwargs and args == None: func(**kwargs)
+                else: func(*args, **kwargs)
                 self._last_action = time()
 
         # now we have handled zero or one actions from the priority queue and

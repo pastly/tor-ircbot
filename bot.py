@@ -174,7 +174,6 @@ def servmsg(message):
         server_in.write('{}\n'.format(message))
 
 def privmsg(nick, message):
-    #log.debug('/privmsg {} {}'.format(nick, message))
     servmsg('/privmsg {} {}'.format(nick, message))
 
 def ping(nick):
@@ -577,7 +576,7 @@ def tail_file_process(filename, line_function_handler):
         except UnicodeDecodeError:
             log.warn('Can\'t decode line, so ignoring: {}'.format(line_))
             continue
-        main_action_queue.add(line_function_handler, args=[line])
+        main_action_queue.add(line_function_handler, [line])
     sub.terminate()
     log.notice('Stopping process to tail {}'.format(filename))
 

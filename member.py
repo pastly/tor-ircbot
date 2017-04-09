@@ -48,6 +48,9 @@ class MemberList:
 
     def contains(self, nick=None, user=None, host=None):
         assert nick != None or user != None or host != None
+
+        match_nick, match_user, match_host = False, False, False
+
         if nick:
             match_nick = self.__contains_nick(nick)
         if user:
@@ -71,6 +74,8 @@ class MemberList:
 
         if match_nick == match_user and match_nick == match_host:
             return True if match_nick else False
+
+        return False
 
     def __contains_nick(self, nick):
         m = self.__getitem__(nick)

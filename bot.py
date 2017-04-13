@@ -6,18 +6,15 @@ import subprocess
 from configparser import ConfigParser
 from multiprocessing import Event, Process
 from threading import Timer
-from time import time
+from time import sleep, time
 # custom stuff
 from actionqueue import ActionQueue
 from member import Member, MemberList
 from pastlylogger import PastlyLogger
 from repeatedtimer import RepeatedTimer
+from tokenbucket import token_bucket
 
 # TODO: make 'word in MemberList' work but having __iter__ return keys
-# TODO: make ActionQueue somehow take a function that, when called, returns the
-# amount of time that must pass between actions. This is to handle being allowed
-# to bust on IRC (5 burst, then every 0.5 secs on OFTC) (can burst a ton all at
-# once on OFTC, but if the IRCd queue hits 30, the bot will be disconnected).
 
 log = None
 
@@ -33,7 +30,8 @@ is_getting_members = Event()
 nick_prefixes = ['@','+']
 members = MemberList()
 main_action_queue = ActionQueue(long_timeout=60)
-outbound_message_queue = ActionQueue(time_between_actions=0.51, long_timeout=5)
+outbound_message_queue = ActionQueue(long_timeout=5,
+    time_between_actions_func=token_bucket(5, 0.505))
 server_dir = None
 channel_name = None
 update_members_event = None
@@ -177,7 +175,8 @@ def privmsg(nick, message):
     servmsg('/privmsg {} {}'.format(nick, message))
 
 def ping(nick):
-    outbound_message_queue.add(privmsg, [nick, 'pong'])
+    privmsg(nick, 'pong')
+    #outbound_message_queue.add(privmsg, [nick, 'pong'])
 
 def akick(nick, reason=None):
     if not reason:
@@ -215,6 +214,14 @@ def contains_banned_word(words):
     for banned_word in banned_words:
         if banned_word in words: return True
     return False
+
+def perform_with_ops(func, args=None, kwargs=None):
+    outbound_message_queue.add(privmsg,
+        ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')])
+    outbound_message_queue.add(sleep, [0.5])
+    outbound_message_queue.add(func, args, kwargs)
+    outbound_message_queue.add(privmsg,
+        ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
 
 def member_add(nick, user=None, host=None):
     old_len = len(members)
@@ -466,12 +473,7 @@ def privmsg_out_process_line(line):
         if arg != None: command = '{} {}'.format(flag, arg)
         else: command = flag
         # send it!
-        outbound_message_queue.add(privmsg,
-            ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')])
-        outbound_message_queue.add(servmsg,
-            ['/mode {} {}'.format(channel_name, command)])
-        outbound_message_queue.add(privmsg,
-            ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
+        perform_with_ops(servmsg, ['/mode {} {}'.format(channel_name, command)])
         # log it!
         log.notice('{} set mode {}'.format(speaker, command))
         outbound_message_queue.add(privmsg, [speaker,

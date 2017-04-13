@@ -4,16 +4,24 @@ from queue import Empty, PriorityQueue
 from multiprocessing import Event, Process, Queue
 class ActionQueue:
 
-    # time_between_actions is a number of seconds (with optional fractional
-    # part) that must elapse between individual actions are processed out of
-    # the priority queue. A time of 0 means no time must pass and to process
-    # actions as quickly as possible.
-    def __init__(self, time_between_actions=0, long_timeout=10):
+    def __init__(self, long_timeout=10, time_between_actions_func=None):
         self._incoming_queue = Queue()
         self._action_queue = PriorityQueue()
-        self._time_between_actions = time_between_actions
-        # timestamp at which the last action was taken
-        self._last_action = 0
+        # A function pointer that is called after every action to caclulate
+        # the amount of time to wait before executing the next action in the
+        # priority queue. The function takes one argument, a variable for
+        # holding state. It returns a tuple: (time_to_wait, new_state). If the
+        # function needs to keep track of some information between calls, it
+        # should use the state variable.
+        if time_between_actions_func:
+            self._time_between_actions_func = time_between_actions_func
+        else:
+            self._time_between_actions_func = \
+                ActionQueue.__default_time_between_actions_func
+        self._time_between_actions_func_state = None
+        # timestamp at which we can perform another action, as calculated by
+        # the current time + return value from time_between_actions_func
+        self._next_action = 0
         # Number of seconds to wait for a new action to come in via
         # self.add(...) when we have no actions in the priority queue.
         # Too low, and we hurt CPU by abusively busy waiting.
@@ -27,16 +35,25 @@ class ActionQueue:
     # - args is an optional list of arguments to pass to the function
     # - kwargs is an optional dictionary of arguments to pass to the function
     # - priority is ... the priority. Obviously. This is a min-priority queue.
-    #   thus a smaller priority means a "better" priority and that item should
+    #   Thus a smaller priority means a "better" priority and that item should
     #   be handled more quickly. By default, priority is the current time (in
     #   seconds, and probably with fractional seconds). To put something in the
     #   queue with a little extra importance (like 5 seconds worth), set
     #   priority to time()-5. To put something in with upmost priority, add it
     #   with priority == 0. If you never specify a priority, then this structure
-    #   is essentially a FIFO queue in its own process.
+    #   is essentially a FIFO queue in its own process. NOTE: while priority
+    #   defaults to time, that does NOT mean setting priority == time()+5 means
+    #   the item will be processed after 5 seconds.
     def add(self, func, args=None, kwargs=None, priority=None):
         if priority == None: priority = time()
         self._incoming_queue.put( (priority, (func, args, kwargs)) )
+
+    # A very simple time_between_actions_func that instructs the ActionQueue
+    # to not wait at all between actions. All time_between_actions_func's must
+    # take a state argument and return the new state. This is how you would
+    # write one that doesn't need any state.
+    def __default_time_between_actions_func(state):
+        return 0, None
 
     def __process_incoming_queue(self, timeout):
         try: item = self._incoming_queue.get(timeout=timeout)
@@ -45,8 +62,10 @@ class ActionQueue:
             self._action_queue.put(item)
 
     def loop_once(self):
+        time_to_wait = None
+
         # first make sure enough time has passed since our last action
-        if time() - self._last_action >= self._time_between_actions:
+        if time() >= self._next_action:
             # get an action out of the priority queue
             try: item = self._action_queue.get_nowait()
             except Empty: item = None
@@ -58,19 +77,25 @@ class ActionQueue:
                 elif args and kwargs == None: func(*args)
                 elif kwargs and args == None: func(**kwargs)
                 else: func(*args, **kwargs)
-                self._last_action = time()
+                # now run the _time_between_actions_func to determine how long
+                # we must wait before processing another event
+                old_state = self._time_between_actions_func_state
+                time_to_wait, new_state = \
+                    self._time_between_actions_func(old_state)
+                self._time_between_actions_func_state = new_state
+                self._next_action = time() + time_to_wait
 
-        # now we have handled zero or one actions from the priority queue and
-        # are done with it. Now we should see if there are any more actions to
-        # add to the priority queue waiting on the incoming queue.
+        # Now we have handled zero or one actions from the priority queue and
+        # are done with it for this loop. We should see if there are any more
+        # actions in the incoming queue to add to the priority queue.
 
-        # if there is nothing in the priority queue, we can afford to wait for
-        # a new action to come in for a long time.
+        # if there is nothing in the priority queue, we can afford to wait a
+        # long time for a new action to come in.
         if self._action_queue.empty():
             self.__process_incoming_queue(timeout=self._long_timeout)
         # if there is another action waiting in the priority queue, we can only
-        # afford to wait for the remaining time_between_actions
+        # afford to wait for the remaining time until we should perform it
         else:
-            timeout = (self._last_action - time()) + self._time_between_actions
+            timeout = self._next_action - time()
             if timeout < 0: timeout=0
             self.__process_incoming_queue(timeout=timeout)

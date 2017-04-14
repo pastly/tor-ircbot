@@ -4,9 +4,10 @@ import signal
 import subprocess
 # python stuff
 from configparser import ConfigParser
-from multiprocessing import Event, Process
+from multiprocessing import Event, Process, Queue
 from threading import Timer
-from time import sleep, time
+from time import time
+from queue import Empty
 # custom stuff
 from actionqueue import ActionQueue
 from member import Member, MemberList
@@ -22,16 +23,28 @@ config_file = 'config.ini'
 config = ConfigParser()
 config.read(config_file)
 
-# need to be all lowercase
+# need to be all lowercase XXX: still true?
+# people that can PM the bot
 masters = ['pastly']
 
+# booleans for inter-thread signaling
 is_shutting_down = Event()
 is_getting_members = Event()
+is_operator = Event()
+# chars that could come before a nick but are not part of the nick
 nick_prefixes = ['@','+']
 members = MemberList()
+# action queue for the main process's main loop
 main_action_queue = ActionQueue(long_timeout=60)
+# action queue for a process for handling outgoing messages
 outbound_message_queue = ActionQueue(long_timeout=5,
     time_between_actions_func=token_bucket(5, 0.505))
+# a process that waits for outbound messages that should be sent while we have
+# operator status. It is created the first time we need ops, and lives as long
+# as we need it, and then dies when we haven't needed it for some timeout.
+as_operator = None
+# a queue for the above process to accept messages on
+as_operator_queue = Queue()
 server_dir = None
 channel_name = None
 update_members_event = None
@@ -176,7 +189,6 @@ def privmsg(nick, message):
 
 def ping(nick):
     privmsg(nick, 'pong')
-    #outbound_message_queue.add(privmsg, [nick, 'pong'])
 
 def akick(nick, reason=None):
     if not reason:
@@ -215,13 +227,15 @@ def contains_banned_word(words):
         if banned_word in words: return True
     return False
 
+# must be called from the main process
 def perform_with_ops(func, args=None, kwargs=None):
-    outbound_message_queue.add(privmsg,
-        ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')])
-    outbound_message_queue.add(sleep, [0.5])
-    outbound_message_queue.add(func, args, kwargs)
-    outbound_message_queue.add(privmsg,
-        ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
+    global as_operator
+    if as_operator == None or not as_operator.is_alive():
+        set_ignore_signals()
+        as_operator = Process(target=as_operator_process)
+        as_operator.start()
+        set_our_signals()
+    as_operator_queue.put( (func, args, kwargs) )
 
 def member_add(nick, user=None, host=None):
     old_len = len(members)
@@ -314,6 +328,15 @@ def channel_out_process_line(line):
                 return
             member_add(nick, user, host)
             log.info('{} joined ({})'.format(nick,len(members)))
+        elif ' '.join(words[1:3]) == 'changed mode/{}'.format(channel_name):
+            who = words[0]
+            mode = words[4]
+            arg = words[5] if len(words) >= 6 else None
+            if mode == '+o' and arg == 'pastly_bot':
+                is_operator.set()
+            elif mode == '-o' and arg == 'pastly_bot':
+                is_operator.clear()
+            return
         else:
             log.debug('Ignoring unknown channel ctrl message: {}'.format(
                 ' '.join(words)))
@@ -476,8 +499,6 @@ def privmsg_out_process_line(line):
         perform_with_ops(servmsg, ['/mode {} {}'.format(channel_name, command)])
         # log it!
         log.notice('{} set mode {}'.format(speaker, command))
-        outbound_message_queue.add(privmsg, [speaker,
-            'sent: /mode {} {}'.format(channel_name, command)])
         return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
@@ -582,10 +603,37 @@ def tail_file_process(filename, line_function_handler):
     sub.terminate()
     log.notice('Stopping process to tail {}'.format(filename))
 
+# governing function that waits for actions that should be executed as an
+# operator, makes sure we have op, and then sends the command off to the
+# outbound message queue process. It also deops us if we go a long time without
+# performing an op command.
+def as_operator_process():
+    log.notice('Starting operator action process')
+    outbound_message_queue.add(privmsg,
+        ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')],
+        priority=time()-10)
+    if not is_operator.wait(timeout=5):
+        log.error('Asked for operator, but didn\'t get it before timeout. '
+            'Giving up on the operator thread')
+        log.notice('Stopping operator action process')
+        return
+    log.debug('Got oper')
+    while not is_shutting_down.is_set():
+        try: item = as_operator_queue.get(timeout=10)
+        except Empty: item = None
+        if item == None: break
+        func, args, kwargs = item
+        log.debug('Doing {} as oper'.format(func))
+        outbound_message_queue.add(func, args, kwargs, priority=time()-10)
+    outbound_message_queue.add(privmsg,
+        ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
+    log.notice('Stopping operator action process')
+
+
 # must be called from the main process
 # call a function in a thread of the main process in interval seconds
 def fire_one_off_event(interval, func, args=None):
-    Timer(interval, func, args=args).start()
+    return Timer(interval, func, args=args).start()
 
 def main():
     global server_dir

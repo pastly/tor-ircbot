@@ -356,7 +356,7 @@ def privmsg_out_process_line(line):
     speaker = tokens[2]
     words = tokens[3:]
     if speaker[0] != '<' or speaker[-1] != '>':
-        log.warn('Ignoring privmsg with weird speaker: {}'.format(speaker))
+        log.info('Ignoring privmsg with weird speaker: {}'.format(speaker))
         return
     speaker = speaker[1:-1].lower()
     if speaker not in masters:
@@ -498,7 +498,7 @@ def privmsg_out_process_line(line):
         # send it!
         perform_with_ops(servmsg, ['/mode {} {}'.format(channel_name, command)])
         # log it!
-        log.notice('{} set mode {}'.format(speaker, command))
+        log.notice('{} setting mode {}'.format(speaker, command))
         return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(
@@ -617,13 +617,11 @@ def as_operator_process():
             'Giving up on the operator thread')
         log.notice('Stopping operator action process')
         return
-    log.debug('Got oper')
     while not is_shutting_down.is_set():
         try: item = as_operator_queue.get(timeout=10)
         except Empty: item = None
         if item == None: break
         func, args, kwargs = item
-        log.debug('Doing {} as oper'.format(func))
         outbound_message_queue.add(func, args, kwargs, priority=time()-10)
     outbound_message_queue.add(privmsg,
         ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])

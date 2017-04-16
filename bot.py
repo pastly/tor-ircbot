@@ -8,6 +8,7 @@ from multiprocessing import Event, Process, Queue
 from threading import Timer
 from time import time
 from queue import Empty
+from random import randint
 # custom stuff
 from actionqueue import ActionQueue
 from member import Member, MemberList
@@ -618,7 +619,7 @@ def as_operator_process():
         log.notice('Stopping operator action process')
         return
     while not is_shutting_down.is_set():
-        try: item = as_operator_queue.get(timeout=10)
+        try: item = as_operator_queue.get(timeout=randint(30,90))
         except Empty: item = None
         if item == None: break
         func, args, kwargs = item

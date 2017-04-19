@@ -518,8 +518,7 @@ def log_to_masters(string):
 def ask_for_new_members():
     log.debug('Clearing members set. Asking for members again')
     is_getting_members.set()
-    with open('{}/in'.format(server_dir), 'w') as server_in:
-        server_in.write('/who {}\n'.format(channel_name))
+    servmsg('/who {}'.format(channel_name))
 
 # Must be called from the main process so the correct copy of members is updated
 # a RepeatedTimer calls this every now and then, and it runs in a thread of the

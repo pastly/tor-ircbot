@@ -68,6 +68,21 @@ common_words = \
 'how','our','work','first','well','way','even','new','want','because','any',
 'these','give','day','most','us']
 
+mask_keywords = {
+    'nick': '{}!*@*',
+    '*nick': '*{}!*@*',
+    'nick*': '{}*!*@*',
+    '*nick*': '*{}*!*@*',
+    'user': '*!{}@*',
+    '*user': '*!*{}@*',
+    'user*': '*!{}*@*',
+    '*user*': '*!*{}*@*',
+    'host': '*!*@{}',
+    '*host': '*!*@*{}',
+    'host*': '*!*@{}*',
+    '*host*': '*!*@*{}*',
+}
+
 processes = []
 
 non_nick_punctuation = [':',',','!','?']
@@ -191,18 +206,27 @@ def privmsg(nick, message):
 def ping(nick):
     privmsg(nick, 'pong')
 
-def akick(nick, reason=None):
+# must be called from as_operator_process
+def chanserv_add_to_list(action, mask, reason=None):
     if not reason:
-        log.notice('akicking {}'.format(nick))
+        log.notice('{}ing {}'.format(action, mask))
         outbound_message_queue.add(privmsg, [
-            'chanserv', 'akick {} add {}!*@*'.format(channel_name, nick)
+            'chanserv', '{} {} add {}'.format(action, channel_name, mask)
         ])
     else:
-        log.notice('akicking {} for {}'.format(nick, reason))
+        log.notice('{}ing {} for {}'.format(action, mask, reason))
         outbound_message_queue.add(privmsg, [
-            'chanserv', 'akick {} add {}!*@* {}'.format(
-            channel_name, nick, reason)
+            'chanserv', '{} {} add {} {}'.format(
+            action, channel_name, mask, reason)
         ])
+
+# must be called from as_operator_process
+def akick(mask, reason=None):
+    chanserv_add_to_list('akick', mask, reason)
+
+# must be called from as_operator_process
+def quiet(mask, reason=None):
+    chanserv_add_to_list('quiet', mask, reason)
 
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
@@ -500,6 +524,33 @@ def privmsg_out_process_line(line):
         perform_with_ops(servmsg, ['/mode {} {}'.format(channel_name, command)])
         # log it!
         log.notice('{} setting mode {}'.format(speaker, command))
+        return
+    elif words[0].lower() in ['ban', 'quiet', 'akick']:
+        if len(words) < 4:
+            outbound_message_queue.add(privmsg, [speaker,
+                'quiet/akick <nick> <mask-kw>[,<mask-kw>] <reason>'])
+            return
+        nick = words[1]
+        member = members[nick]
+        if not member:
+            outbound_message_queue.add(privmsg, [speaker, 'couldn\'t find {}'.format(nick)])
+            return
+        action = words[0].lower()
+        reason = ' '.join(words[3:])
+        if action == 'ban': action = 'akick'
+        omq = outbound_message_queue
+        for mask_kw in set(words[2].split(',')):
+            if mask_kw not in mask_keywords:
+                omq.add(privmsg, [speaker,
+                    'ignoring unknown mask keyword {}'.format(mask_kw)], priority=time()+10)
+                continue
+            mask = mask_keywords[mask_kw]
+            if 'nick' in mask_kw: mask = mask.format(member.nick)
+            elif 'user' in mask_kw: mask = mask.format(member.user)
+            elif 'host' in mask_kw: mask = mask.format(member.host)
+            if action == 'akick': perform_with_ops(akick, [mask, reason])
+            elif action == 'quiet': perform_with_ops(quiet, [mask, reason])
+            else: log.warn('can\'t do {} and should\'ve caught it before now'.format(action))
         return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(

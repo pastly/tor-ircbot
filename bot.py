@@ -525,32 +525,44 @@ def privmsg_out_process_line(line):
         # log it!
         log.notice('{} setting mode {}'.format(speaker, command))
         return
-    elif words[0].lower() in ['ban', 'quiet', 'akick']:
+    elif words[0].lower() in ['ban', 'quiet', 'akick',
+        'secretakick', 'secretban']:
         if len(words) < 4:
             outbound_message_queue.add(privmsg, [speaker,
-                'quiet/akick <nick> <mask-kw>[,<mask-kw>] <reason>'])
+                'quiet/ban/secretban <nick> <mask-kw>[,<mask-kw>] <reason>'])
             return
         nick = words[1]
         member = members[nick]
         if not member:
-            outbound_message_queue.add(privmsg, [speaker, 'couldn\'t find {}'.format(nick)])
+            outbound_message_queue.add(privmsg,
+                    [speaker, 'couldn\'t find {}'.format(nick)])
             return
         action = words[0].lower()
         reason = ' '.join(words[3:])
         if action == 'ban': action = 'akick'
+        elif action == 'secretban': action = 'secretakick'
         omq = outbound_message_queue
         for mask_kw in set(words[2].split(',')):
             if mask_kw not in mask_keywords:
                 omq.add(privmsg, [speaker,
-                    'ignoring unknown mask keyword {}'.format(mask_kw)], priority=time()+10)
+                    'ignoring unknown mask keyword {}'.format(mask_kw)],
+                    priority=time()+10)
                 continue
             mask = mask_keywords[mask_kw]
             if 'nick' in mask_kw: mask = mask.format(member.nick)
             elif 'user' in mask_kw: mask = mask.format(member.user)
             elif 'host' in mask_kw: mask = mask.format(member.host)
-            if action == 'akick': perform_with_ops(akick, [mask, reason])
-            elif action == 'quiet': perform_with_ops(quiet, [mask, reason])
-            else: log.warn('can\'t do {} and should\'ve caught it before now'.format(action))
+            reason += ' ({})'.format(member.nick)
+            if action == 'akick':
+                reason += ' (by {})'.format(speaker)
+                perform_with_ops(akick, [mask, reason])
+            elif action == 'secretakick':
+                perform_with_ops(akick, [mask, reason])
+            elif action == 'quiet':
+                reason += ' (by {})'.format(speaker)
+                perform_with_ops(quiet, [mask, reason])
+            else: log.warn('can\'t do '
+                '{} and should\'ve caught it before now'.format(action))
         return
     else:
         log.debug('master {} said "{}" but we don\'t have a response'.format(

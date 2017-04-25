@@ -542,6 +542,7 @@ def privmsg_out_process_line(line):
         if action == 'ban': action = 'akick'
         elif action == 'secretban': action = 'secretakick'
         omq = outbound_message_queue
+        org_reason += ' ({})'.format(member.nick)
         for mask_kw in set(words[2].split(',')):
             if mask_kw not in mask_keywords:
                 omq.add(privmsg, [speaker,
@@ -552,14 +553,13 @@ def privmsg_out_process_line(line):
             if 'nick' in mask_kw: mask = mask.format(member.nick)
             elif 'user' in mask_kw: mask = mask.format(member.user)
             elif 'host' in mask_kw: mask = mask.format(member.host)
-            reason += ' ({})'.format(member.nick)
             if action == 'akick':
-                reason += ' (by {})'.format(speaker)
+                reason = '{} (by {})'.format(org_reason, speaker)
                 perform_with_ops(akick, [mask, reason])
             elif action == 'secretakick':
                 perform_with_ops(akick, [mask, reason])
             elif action == 'quiet':
-                reason += ' (by {})'.format(speaker)
+                reason = '{} (by {})'.format(org_reason, speaker)
                 perform_with_ops(quiet, [mask, reason])
             else: log.warn('can\'t do '
                 '{} and should\'ve caught it before now'.format(action))

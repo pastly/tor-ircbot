@@ -206,7 +206,7 @@ def privmsg(nick, message):
 def ping(nick):
     privmsg(nick, 'pong')
 
-# must be called from as_operator_process
+# called from the main process
 def chanserv_add_to_list(action, mask, reason=None):
     if not reason:
         log.notice('{}ing {}'.format(action, mask))
@@ -220,11 +220,11 @@ def chanserv_add_to_list(action, mask, reason=None):
             action, channel_name, mask, reason)
         ])
 
-# must be called from as_operator_process
+# called from the main process
 def akick(mask, reason=None):
     chanserv_add_to_list('akick', mask, reason)
 
-# must be called from as_operator_process
+# called from the main process
 def quiet(mask, reason=None):
     chanserv_add_to_list('quiet', mask, reason)
 
@@ -555,12 +555,12 @@ def privmsg_out_process_line(line):
             elif 'host' in mask_kw: mask = mask.format(member.host)
             if action == 'akick':
                 reason = '{} (by {})'.format(org_reason, speaker)
-                perform_with_ops(akick, [mask, reason])
+                akick(mask, reason)
             elif action == 'secretakick':
-                perform_with_ops(akick, [mask, reason])
+                akick(mask, reason)
             elif action == 'quiet':
                 reason = '{} (by {})'.format(org_reason, speaker)
-                perform_with_ops(quiet, [mask, reason])
+                quiet(mask, reason)
             else: log.warn('can\'t do '
                 '{} and should\'ve caught it before now'.format(action))
         return

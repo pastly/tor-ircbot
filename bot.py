@@ -542,7 +542,7 @@ def privmsg_out_process_line(line):
         if action == 'ban': action = 'akick'
         elif action == 'secretban': action = 'secretakick'
         omq = outbound_message_queue
-        org_reason += ' ({})'.format(member.nick)
+        org_reason = '{} ({})'.format(reason, member.nick)
         for mask_kw in set(words[2].split(',')):
             if mask_kw not in mask_keywords:
                 omq.add(privmsg, [speaker,

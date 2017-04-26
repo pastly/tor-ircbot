@@ -372,7 +372,14 @@ def channel_out_process_line(line):
         speaker = speaker[1:-1].lower()
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if get_enforce_highlight_spam() and is_highlight_spam(words):
-            akick(speaker, 'highlight spam')
+            if members.contains(nick=speaker):
+                m = members[speaker]
+                outbound_message_queue.add(akick, [
+                    '{}!*@*'.format(m.nick),
+                    'highlight spam ({}) (automatic)'.format(speaker)])
+                outbound_message_queue.add(akick, [
+                    '*!*@{}'.format(m.host),
+                    'highlight spam ({}) (automatic)'.format(speaker)])
 
 # must be called from the main process
 def privmsg_out_process_line(line):

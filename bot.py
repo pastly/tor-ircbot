@@ -27,6 +27,8 @@ config.read(config_file)
 # need to be all lowercase XXX: still true?
 # people that can PM the bot
 masters = ['pastly']
+# people that shouldn't be kicked
+dont_kick = ['velope', 'arma', 'dgoulet']
 
 # booleans for inter-thread signaling
 is_shutting_down = Event()
@@ -228,6 +230,16 @@ def akick(mask, reason=None):
 def quiet(mask, reason=None):
     chanserv_add_to_list('quiet', mask, reason)
 
+def kick(nick, reason=None):
+    if not reason:
+        log.notice('kicking {}'.format(nick))
+        outbound_message_queue.add(servmsg, ['/kick {} {}'.format(
+            channel_name, nick)])
+    else:
+        log.notice('kicking {} for {}'.format(nick, reason))
+        outbound_message_queue.add(servmsg, ['/kick {} {} {}'.format(
+            channel_name, nick, reason)])
+
 def is_highlight_spam(words):
     words = [ w.lower() for w in words ]
     words = [ w for w in words if w not in common_words ]
@@ -374,8 +386,19 @@ def channel_out_process_line(line):
         if get_enforce_highlight_spam() and is_highlight_spam(words):
             if members.contains(nick=speaker):
                 m = members[speaker]
-                akick('*!*@{}'.format(m.host),
-                    'highlight spam ({}) (automatic)'.format(speaker))
+                perform_with_ops(servmsg, ['/mode {} +R'.format(channel_name)])
+                kick_list = set()
+                kick_list.add(m.nick)
+                for r in members.get_joined_since(time()-15):
+                    if r.nick == 'pastly_bot' or r.nick in masters or \
+                        r.nick in dont_kick:
+                        log.info('Would kick {}, but too important'.format(
+                            r.nick))
+                        continue
+                    kick_list.add(r.nick)
+                for n in kick_list: perform_with_ops(kick, [n,
+                    ":Channel was spammed. "
+                    "Auto-kicking possible spammer nicks."])
 
 # must be called from the main process
 def privmsg_out_process_line(line):

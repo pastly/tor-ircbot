@@ -1,3 +1,4 @@
+from time import time
 class Member:
     def __init__(self, nick, user=None, host=None):
         self.nick = nick
@@ -22,8 +23,10 @@ class Member:
         self.host = host
 
 class MemberList:
-    def __init__(self):
+    def __init__(self, recent_until=10.00):
         self._members = set()
+        self._recent = []
+        self._recent_until = recent_until
 
     def __len__(self):
         return len(self._members)
@@ -33,15 +36,20 @@ class MemberList:
 
     def add(self, nick, user=None, host=None):
         if not self.contains(nick=nick):
-            self._members.add(Member(nick, user, host))
+            m = Member(nick, user, host)
+            self._members.add(m)
+            self._recent.append( (time(), m) )
         else:
             member = self.__getitem__(nick)
             member.set(user=user, host=host)
+        self.__trim_recent()
 
     def remove(self, nick):
         member = self.__getitem__(nick)
         if not member: return
         self._members.discard(member)
+        self._recent = [ (at, m) for at, m in self._recent if m.nick != nick ]
+        self.__trim_recent()
 
     def discard(self, nick):
         return self.remove(nick)
@@ -115,3 +123,17 @@ class MemberList:
         if user:
             return matching_users
         return matching_hosts
+
+    def __trim_recent(self):
+        new_recent = []
+        now = time()
+        for at, m in self._recent:
+            if at + self._recent_until >= now:
+                new_recent.append( (at, m) )
+        self._recent = new_recent
+
+    def get_joined_since(self, t):
+        members = set()
+        for at, m in self._recent:
+            if at >= t: members.add(m)
+        return members

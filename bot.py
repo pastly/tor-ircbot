@@ -88,6 +88,8 @@ processes = []
 non_nick_punctuation = [':',',','!','?']
 non_nick_punctuation.extend(nick_prefixes)
 
+last_plusr_time = time()
+
 # True if successful
 def set_mention_limit(value):
     if len(value) != 1:
@@ -372,6 +374,12 @@ def channel_out_process_line(line):
         speaker = speaker[1:-1].lower()
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if get_enforce_highlight_spam() and is_highlight_spam(words):
+            if time() <= last_plusr_time + (60*15): # 15 minutes
+                perform_with_ops(servmsg,
+                    ['/mode {} {}'.format(channel_name, '+R')])
+                log.notice('Got highlight spam. Setting +R. '
+                    'Last +R was at {}.'.format(last_plusr_time))
+                last_plusr_time = time()
             if members.contains(nick=speaker):
                 m = members[speaker]
                 akick('*!*@{}'.format(m.host),

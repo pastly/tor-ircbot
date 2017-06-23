@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import re
+import json
 import os
 import signal
 import subprocess
@@ -28,6 +30,10 @@ config.read(config_file)
 # people that can PM the bot
 masters = ['pastly']
 
+# regex patterns that will cause someone to get banned.
+# loaded in from the config
+banned_patterns = []
+
 # booleans for inter-thread signaling
 is_shutting_down = Event()
 is_getting_members = Event()
@@ -53,9 +59,6 @@ update_members_event = None
 default_sigint = signal.getsignal(signal.SIGINT)
 default_sigterm = signal.getsignal(signal.SIGTERM)
 default_sighup = signal.getsignal(signal.SIGHUP)
-
-banned_words = \
-[]
 
 common_words = \
 ['the','be','to','of','and','a','in','that','have','i','it','for','not','on',
@@ -88,7 +91,7 @@ processes = []
 non_nick_punctuation = [':',',','!','?']
 non_nick_punctuation.extend(nick_prefixes)
 
-last_plusr_time = time()
+last_plusr_time = time() - 20*60 # 20 minutes
 
 # True if successful
 def set_mention_limit(value):
@@ -150,6 +153,27 @@ def set_enforce_highlight_spam(value):
 def get_enforce_highlight_spam():
     return config.getboolean('highlight_spam', 'enabled', fallback=False)
 
+def set_enforce_banned_patterns(value):
+    if len(value) != 1:
+        log.warn('Ignoring enforce_banned_patterns: {}'.format(value))
+        return False
+    value = value[0]
+    try:
+        if value == 'True': value = True
+        elif value == 'False': value = False
+        else:
+            log.warn('Ignoring non-bool enforce_banned_patterns: {}'.format(
+                value))
+            return False
+    except (TypeError, ValueError):
+        log.warn('Ignoring non-bool enforce_highlight_spam: {}'.format(value))
+        return False
+    config['banned_patterns']['enabled'] = str(value)
+    return True
+
+def get_enforce_banned_patterns():
+    return config.getboolean('banned_patterns', 'enabled', fallback=False)
+
 # Each key is an option that can be set
 # Each value is a tuple of (func_to_set_opt, func_to_get_opt)
 #
@@ -166,6 +190,8 @@ options = {
         (set_update_members_interval, get_update_members_interval),
     'enforce_highlight_spam':
         (set_enforce_highlight_spam, get_enforce_highlight_spam),
+    'enforce_banned_patterns':
+        (set_enforce_banned_patterns, get_enforce_banned_patterns),
 }
 
 def set_ignore_signals():
@@ -248,10 +274,10 @@ def is_highlight_spam(words):
     if len(matches) > get_mention_limit(): return True
     return False
 
-def contains_banned_word(words):
-    words = [ w.lower() for w in words ]
-    for banned_word in banned_words:
-        if banned_word in words: return True
+def contains_banned_pattern(words):
+    words = ' '.join([ w.lower() for w in words ])
+    for bp in banned_patterns:
+        if bp.search(words): return True
     return False
 
 # must be called from the main process
@@ -334,6 +360,7 @@ def server_out_process_line(line):
 
 # must be called from the main process
 def channel_out_process_line(line):
+    global last_plusr_time
     if not len(line): return
     tokens = line.split()
     speaker = tokens[2]
@@ -374,7 +401,7 @@ def channel_out_process_line(line):
         speaker = speaker[1:-1].lower()
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if get_enforce_highlight_spam() and is_highlight_spam(words):
-            if time() <= last_plusr_time + (60*15): # 15 minutes
+            if time() > last_plusr_time + (60*15): # 15 minutes
                 perform_with_ops(servmsg,
                     ['/mode {} {}'.format(channel_name, '+R')])
                 log.notice('Got highlight spam. Setting +R. '
@@ -384,6 +411,17 @@ def channel_out_process_line(line):
                 m = members[speaker]
                 akick('*!*@{}'.format(m.host),
                     'highlight spam ({}) (automatic)'.format(speaker))
+        if get_enforce_banned_patterns() and contains_banned_pattern(words):
+            if time() > last_plusr_time + (60*15): # 15 minutes
+                perform_with_ops(servmsg,
+                    ['/mode {} {}'.format(channel_name, '+R')])
+                log.notice('Got a banned word. Setting +R. '
+                    'Last +R was at {}.'.format(last_plusr_time))
+                last_plusr_time = time()
+            if members.contains(nick=speaker):
+                m = members[speaker]
+                akick('*!*@{}'.format(m.host),
+                    'likely spam ({}) (automatic)'.format(speaker))
 
 # must be called from the main process
 def privmsg_out_process_line(line):
@@ -712,6 +750,11 @@ def main():
     global channel_name
     global update_members_event
     global log
+    global banned_patterns
+
+    if 'pats' in config['banned_patterns']:
+        for p in json.loads(config['banned_patterns']['pats']):
+            banned_patterns.append(re.compile(p))
 
     server_dir = os.path.join(config['ii']['ircdir'],config['ii']['server'])
     channel_name = config['ii']['channel']

@@ -1,13 +1,15 @@
 from datetime import datetime
 from multiprocessing import Queue
+from queue import Empty
 from pbprocess import PBProcess
 
 class LogProcess(PBProcess):
-    def __init__(self, error=None, warn=None, notice=None,
+    def __init__(self, global_state, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
         PBProcess.__init__(self, self.__enter)
 
         self._message_queue = Queue(10000)
+        self._gs = global_state
 
         self._logs = {}
         for level, fname in ('debug', debug), \
@@ -21,15 +23,7 @@ class LogProcess(PBProcess):
                 'fd': None
             }
 
-        self.debug('Created LogProcess instance')
-
-    def __del__(self):
-        self.debug('Deleting LogProcess instance')
-        self.flush()
-        for l in self._logs:
-            log = self._logs[l]
-            if log['fd']: log['fd'].close()
-            log['fd'] = None
+        self.notice('Created LogProcess instance')
 
     def __enter(self):
         for l in self._logs:
@@ -39,9 +33,23 @@ class LogProcess(PBProcess):
                 # buffering=1 means line-based buffering
                 log['fd'] = open(log['fname'], log['mode'], buffering=1)
         while True:
-            level, s = self._message_queue.get()
-            fd = LogProcess._get_fd(self._logs, level)
-            if fd: LogProcess._log_file(fd, level, s)
+            try:
+                level, s = self._message_queue.get(timeout=0.1)
+            except Empty:
+                if self._gs['events']['is_shutting_down'].is_set():
+                    fd = LogProcess._get_fd(self._logs, 'notice')
+                    if fd: LogProcess._log_file(fd,
+                        'notice',
+                        'LogProcess going away')
+                    self.flush()
+                    for l in self._logs:
+                        log = self._logs[l]
+                        if log['fd']: log['fd'].close()
+                        log['fd'] = None
+                    return
+            else:
+                fd = LogProcess._get_fd(self._logs, level)
+                if fd: LogProcess._log_file(fd, level, s)
 
     def flush(self):
         for l in self._logs:

@@ -7,7 +7,7 @@ class LogProcess(PBProcess):
         info=None, debug=None, overwrite=[]):
         PBProcess.__init__(self, self.__enter)
 
-        self._message_queue = Queue()
+        self._message_queue = Queue(10000)
 
         self._logs = {}
         for level, fname in ('debug', debug), \

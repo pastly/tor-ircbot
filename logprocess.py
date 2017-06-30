@@ -8,7 +8,6 @@ class LogProcess(PBProcess):
         PBProcess.__init__(self, self.__enter)
 
         self._message_queue = Queue()
-        self._started = False
 
         self._logs = {}
         for level, fname in ('debug', debug), \
@@ -23,10 +22,6 @@ class LogProcess(PBProcess):
             }
 
         self.debug('Created LogProcess instance')
-
-    def start(self):
-        self._started = True
-        self._proc.start()
 
     def __del__(self):
         self.debug('Deleting LogProcess instance')

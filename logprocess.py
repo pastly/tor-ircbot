@@ -8,9 +8,6 @@ class LogProcess(PBProcess):
         info=None, debug=None, overwrite=[]):
         PBProcess.__init__(self, self._enter)
 
-        self._message_queue = Queue(10000)
-        self._gs = global_state
-
         self._logs = {}
         for level, fname in ('debug', debug), \
             ('info', info), \
@@ -23,9 +20,11 @@ class LogProcess(PBProcess):
                 'fd': None
             }
 
-        self.notice('Created LogProcess instance')
+        self._message_queue = Queue(10000)
+        self.update_global_state(global_state)
 
     def _enter(self):
+        self.notice('Started LogProcess instance')
         for l in self._logs:
             log = self._logs[l]
             if log['fname']:
@@ -34,9 +33,9 @@ class LogProcess(PBProcess):
                 log['fd'] = open(log['fname'], log['mode'], buffering=1)
         while True:
             try:
-                level, s = self._message_queue.get(timeout=0.1)
+                level, s = self._message_queue.get(timeout=5)
             except Empty:
-                if self._gs['events']['is_shutting_down'].is_set():
+                if self._is_shutting_down.is_set():
                     fd = LogProcess._get_fd(self._logs, 'notice')
                     if fd: LogProcess._log_file(fd,
                         'notice',
@@ -82,3 +81,10 @@ class LogProcess(PBProcess):
         self._add_to_queue(s, level)
     def error(self, s, level='error'):
         self._add_to_queue(s, level)
+
+    def update_global_state(self, gs):
+        self._is_shutting_down = gs['events']['is_shutting_down']
+        fd = LogProcess._get_fd(self._logs, 'info')
+        if fd: LogProcess._log_file(fd,
+            'info',
+            'LogProcess updated state')

@@ -8,8 +8,12 @@ from signalstuff import *
 from logprocess import LogProcess
 from watchfileprocess import WatchFileProcess
 
+def share_gs(gs, procs):
+    for proc in procs:
+        if proc: proc.update_global_state(gs)
+
 def main():
-    global_state = {
+    gs = {
         'procs': {
             'log': None,
             'watch_chan': None,
@@ -22,7 +26,7 @@ def main():
     }
 
     def sigint(signum, stack_frame):
-        global_state['events']['is_shutting_down'].set()
+        gs['events']['is_shutting_down'].set()
         exit(0)
     def sigterm(signum, stack_frame):
         return sigint(signum, stack_frame)
@@ -36,17 +40,16 @@ def main():
         signal.SIG_IGN,
         signal.SIG_IGN)
 
-    global_state['procs']['log'] = LogProcess(global_state,
-        debug='/dev/stdout', overwrite=['debug']).start()
-    global_state['procs']['watch_chan'] = WatchFileProcess('chan.txt',
-        global_state).start()
-    #global_state['procs']['watch_serv'] = WatchFileProcess('serv.txt',
-    #    global_state).start()
-    #global_state['procs']['watch_priv'] = WatchFileProcess('priv.txt',
-    #    global_state).start()
+    gs['procs']['log'] = LogProcess(gs,
+        debug='/dev/stdout', overwrite=['debug'])
+    gs['procs']['watch_chan'] = WatchFileProcess('chan.txt', gs)
+    for p in gs['procs']:
+        proc = gs['procs'][p]
+        if proc: proc.start()
 
     signal_stack = pop_signals_from_stack(signal_stack)
 
+    share_gs(gs, [ gs['procs'][p] for p in gs['procs'] ])
     while True:
         time.sleep(10.0)
 

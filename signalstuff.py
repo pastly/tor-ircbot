@@ -17,6 +17,9 @@ def pop_signals_from_stack(stack):
 #def get_current_signals(stack):
 #    return stack[-3:]
 
+def get_default_signals(stack):
+    return stack[0:3]
+
 def set_signals(stack, INT, TERM, HUP):
     signal.signal(signal.SIGINT, INT)
     signal.signal(signal.SIGTERM, TERM)

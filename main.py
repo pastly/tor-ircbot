@@ -23,6 +23,7 @@ def main():
         'events': {
             'is_shutting_down': Event(),
         },
+        'signal_stack': [],
     }
 
     def sigint(signum, stack_frame):
@@ -33,9 +34,12 @@ def main():
     def sighup(signum, stack_frame):
         pass
 
-    signal_stack = add_current_signals_to_stack([])
-    signal_stack = set_signals(signal_stack, sigint, sigterm,  sighup)
-    signal_stack = set_signals(signal_stack,
+    # must add current signals to the beginning of the stack as we need to keep
+    # track of what the default signals are
+    gs['signal_stack'] = add_current_signals_to_stack([])
+    gs['signal_stack'] = set_signals(gs['signal_stack'],
+        sigint, sigterm,  sighup)
+    gs['signal_stack'] = set_signals(gs['signal_stack'],
         signal.SIG_IGN,
         signal.SIG_IGN,
         signal.SIG_IGN)
@@ -47,7 +51,7 @@ def main():
         proc = gs['procs'][p]
         if proc: proc.start()
 
-    signal_stack = pop_signals_from_stack(signal_stack)
+    gs['signal_stack'] = pop_signals_from_stack(gs['signal_stack'])
 
     share_gs(gs, [ gs['procs'][p] for p in gs['procs'] ])
     while True:

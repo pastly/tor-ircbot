@@ -16,8 +16,12 @@ class WatchFileProcess(PBProcess):
                 log.debug('WFP for {} reporting in!'.format(self._fname))
                 time.sleep(random()*2)
             if self._is_shutting_down.is_set():
-                log.notice('WatchFileProcess {} going away'.format(self._fname))
-                return
+                return self._shutdown()
+
+    def _shutdown(self):
+        log = self._log_proc
+        if log: log.notice('WatchFileProcess {} going away'.format(self._fname))
+        return
 
     def update_global_state(self, gs):
         self._log_proc = gs['procs']['log']

@@ -36,16 +36,7 @@ class LogProcess(PBProcess):
                 level, s = self._message_queue.get(timeout=5)
             except Empty:
                 if self._is_shutting_down.is_set():
-                    fd = LogProcess._get_fd(self._logs, 'notice')
-                    if fd: LogProcess._log_file(fd,
-                        'notice',
-                        'LogProcess going away')
-                    self.flush()
-                    for l in self._logs:
-                        log = self._logs[l]
-                        if log['fd']: log['fd'].close()
-                        log['fd'] = None
-                    return
+                    return self._shutdown()
             else:
                 fd = LogProcess._get_fd(self._logs, level)
                 if fd: LogProcess._log_file(fd, level, s)
@@ -54,6 +45,18 @@ class LogProcess(PBProcess):
         for l in self._logs:
             log = self._logs[l]
             if log['fd']: log['fd'].flush()
+
+    def _shutdown(self):
+        fd = LogProcess._get_fd(self._logs, 'notice')
+        if fd: LogProcess._log_file(fd,
+            'notice',
+            'LogProcess going away')
+        self.flush()
+        for l in self._logs:
+            log = self._logs[l]
+            if log['fd']: log['fd'].close()
+            log['fd'] = None
+        return
 
     def _get_fd(logs, level):
         found_the_level = False

@@ -3,7 +3,7 @@ import time
 from random import random
 
 class WatchFileProcess(PBProcess):
-    def __init__(self, fname, global_state=None):
+    def __init__(self, fname, global_state):
         PBProcess.__init__(self, self.__enter)
         self._fname = fname
         self._gs = global_state

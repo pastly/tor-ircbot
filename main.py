@@ -39,14 +39,11 @@ def main():
     global_state['procs']['log'] = LogProcess(global_state,
         debug='/dev/stdout', overwrite=['debug']).start()
     global_state['procs']['watch_chan'] = WatchFileProcess('chan.txt',
-        global_state)
-    global_state['procs']['watch_serv'] = WatchFileProcess('serv.txt',
-        global_state)
-    global_state['procs']['watch_priv'] = WatchFileProcess('priv.txt',
-        global_state)
-    global_state['procs']['watch_chan'].start()
-    #global_state['procs']['watch_serv'].start()
-    #global_state['procs']['watch_priv'].start()
+        global_state).start()
+    #global_state['procs']['watch_serv'] = WatchFileProcess('serv.txt',
+    #    global_state).start()
+    #global_state['procs']['watch_priv'] = WatchFileProcess('priv.txt',
+    #    global_state).start()
 
     signal_stack = pop_signals_from_stack(signal_stack)
 

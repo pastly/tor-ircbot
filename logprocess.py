@@ -6,7 +6,7 @@ from pbprocess import PBProcess
 class LogProcess(PBProcess):
     def __init__(self, global_state, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
-        PBProcess.__init__(self, self.__enter)
+        PBProcess.__init__(self, self._enter)
 
         self._message_queue = Queue(10000)
         self._gs = global_state
@@ -25,7 +25,7 @@ class LogProcess(PBProcess):
 
         self.notice('Created LogProcess instance')
 
-    def __enter(self):
+    def _enter(self):
         for l in self._logs:
             log = self._logs[l]
             if log['fname']:

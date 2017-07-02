@@ -4,11 +4,11 @@ from random import random
 
 class WatchFileProcess(PBProcess):
     def __init__(self, fname, global_state):
-        PBProcess.__init__(self, self.__enter)
+        PBProcess.__init__(self, self._enter)
         self._fname = fname
         self._gs = global_state
 
-    def __enter(self):
+    def _enter(self):
         log = self._gs['procs']['log']
         while True:
             if log:

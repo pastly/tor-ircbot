@@ -7,6 +7,7 @@ from multiprocessing import Event
 from signalstuff import *
 from logprocess import LogProcess
 from watchfileprocess import WatchFileProcess
+from chanopprocess import ChanOpProcess
 
 def share_gs(gs, procs):
     for proc in procs:
@@ -19,6 +20,7 @@ def main():
             'watch_chan': None,
             'watch_serv': None,
             'watch_priv': None,
+            'chan_op': None,
         },
         'events': {
             'is_shutting_down': Event(),
@@ -46,7 +48,10 @@ def main():
 
     gs['procs']['log'] = LogProcess(gs,
         debug='/dev/stdout', overwrite=['debug'])
-    gs['procs']['watch_chan'] = WatchFileProcess('chan.txt', gs)
+    gs['procs']['chan_op'] = ChanOpProcess(gs)
+    gs['procs']['watch_chan'] = WatchFileProcess('chan.txt', 'chan', gs)
+    gs['procs']['watch_serv'] = WatchFileProcess('serv.txt', 'serv', gs)
+    gs['procs']['watch_priv'] = WatchFileProcess('priv.txt', 'priv', gs)
     for p in gs['procs']:
         proc = gs['procs'][p]
         if proc: proc.start()

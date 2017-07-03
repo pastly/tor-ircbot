@@ -25,7 +25,9 @@ class WatchFileProcess(PBProcess):
             try:
                 line = line_.decode('utf8')
                 line = line[:-1]
-                if len(line): log.debug(line)
+                if len(line) and self._chanop_proc:
+                    co = self._chanop_proc
+                    co.recv_line(self._type, line)
             except UnicodeDecodeError:
                 log.warn('Can\'t decode line, so ignoring: {}'.format(line_))
                 continue
@@ -40,6 +42,7 @@ class WatchFileProcess(PBProcess):
 
     def update_global_state(self, gs):
         self._log_proc = gs['procs']['log']
+        self._chanop_proc = gs['procs']['chan_op']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._ss = gs['signal_stack']
         if self._log_proc:

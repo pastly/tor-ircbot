@@ -33,13 +33,13 @@ class LogProcess(PBProcess):
                 log['fd'] = open(log['fname'], log['mode'], buffering=1)
         while True:
             try:
-                level, s = self._message_queue.get(timeout=5)
+                ts, level, s = self._message_queue.get(timeout=5)
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
             else:
                 fd = LogProcess._get_fd(self._logs, level)
-                if fd: LogProcess._log_file(fd, level, s)
+                if fd: LogProcess._log_file(fd, ts, level, s)
 
     def flush(self):
         for l in self._logs:
@@ -48,9 +48,8 @@ class LogProcess(PBProcess):
 
     def _shutdown(self):
         fd = LogProcess._get_fd(self._logs, 'notice')
-        if fd: LogProcess._log_file(fd,
-            'notice',
-            'LogProcess going away')
+        if fd: LogProcess._log_file(fd, datetime.now(),
+            'notice', 'LogProcess going away')
         self.flush()
         for l in self._logs:
             log = self._logs[l]
@@ -67,13 +66,13 @@ class LogProcess(PBProcess):
         return None
         
 
-    def _log_file(fd, level, s):
+    def _log_file(fd, ts, level, s):
         assert fd
-        ts = datetime.now()
         fd.write('[{}] [{}] {}\n'.format(ts, level, s))
 
     def _add_to_queue(self, s, level):
-        self._message_queue.put( (level, s) )
+        ts = datetime.now()
+        self._message_queue.put( (ts, level, s) )
     def debug(self, s, level='debug'):
         self._add_to_queue(s, level)
     def info(self, s, level='info'):
@@ -88,6 +87,5 @@ class LogProcess(PBProcess):
     def update_global_state(self, gs):
         self._is_shutting_down = gs['events']['is_shutting_down']
         fd = LogProcess._get_fd(self._logs, 'info')
-        if fd: LogProcess._log_file(fd,
-            'info',
-            'LogProcess updated state')
+        if fd: LogProcess._log_file(fd, datetime.now(),
+            'info', 'LogProcess updated state')

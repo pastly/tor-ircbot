@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 # python stuff
+import os
 import signal
 import time
+from configparser import ConfigParser
 from multiprocessing import Event
 # my stuff
 from signalstuff import *
 from logprocess import LogProcess
 from watchfileprocess import WatchFileProcess
 from chanopprocess import ChanOpProcess
+from iiwatchdogprocess import IIWatchdogProcess
 
 def share_gs(gs, procs):
     for proc in procs:
         if proc: proc.update_global_state(gs)
 
 def main():
+    config_file = 'config.ini'
     gs = {
         'procs': {
             'log': None,
@@ -21,11 +25,13 @@ def main():
             'watch_serv': None,
             'watch_priv': None,
             'chan_op': None,
+            'ii_watchdog': None,
         },
         'events': {
             'is_shutting_down': Event(),
         },
         'signal_stack': [],
+        'conf': ConfigParser(),
     }
 
     def sigint(signum, stack_frame):
@@ -45,13 +51,22 @@ def main():
         signal.SIG_IGN,
         signal.SIG_IGN,
         signal.SIG_IGN)
+    gs['conf'].read(config_file)
+
+    server_dir = os.path.join(
+        gs['conf']['ii']['ircdir'],gs['conf']['ii']['server'])
+    channel_name = gs['conf']['ii']['channel']
 
     gs['procs']['log'] = LogProcess(gs,
         debug='/dev/stdout', overwrite=['debug'])
     gs['procs']['chan_op'] = ChanOpProcess(gs)
-    gs['procs']['watch_chan'] = WatchFileProcess('chan.txt', 'chan', gs)
-    gs['procs']['watch_serv'] = WatchFileProcess('serv.txt', 'serv', gs)
-    gs['procs']['watch_priv'] = WatchFileProcess('priv.txt', 'priv', gs)
+    gs['procs']['watch_chan'] = WatchFileProcess(
+        os.path.join(server_dir, channel_name, 'out'), 'chan', gs)
+    gs['procs']['watch_serv'] = WatchFileProcess(
+        os.path.join(server_dir, 'out'), 'serv', gs)
+    gs['procs']['watch_priv'] = WatchFileProcess(
+        os.path.join(server_dir, 'pastly_bot', 'out'), 'priv', gs)
+    gs['procs']['ii_watchdog'] = IIWatchdogProcess(gs)
     for p in gs['procs']:
         proc = gs['procs'][p]
         if proc: proc.start()

@@ -10,6 +10,7 @@ class ChanOpProcess(PBProcess):
     
     def update_global_state(self, gs):
         self._log_proc = gs['procs']['log']
+        self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         if self._log_proc:
             self._log_proc.info('ChanOpProcess updated state')
@@ -24,12 +25,28 @@ class ChanOpProcess(PBProcess):
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
+            if type != 'chan': continue
             if not len(line): continue
             tokens = line.split()
             speaker = tokens[2]
             words = tokens[3:]
-            log.debug('<{}> {}'.format(speaker, words))
+            if speaker == '-!-':
+                log.debug('Ignoring for now: {}'.format(line))
+                continue
+            elif speaker[0] != '<' or speaker[-1] != '>':
+                log.debug('Ignoring weird speaker: {}'.format(speaker))
+                continue
+            else:
+                speaker = speaker[1:-1].lower()
+                self._proc_chan_msg(speaker, words)
 
+    def _proc_chan_msg(self, speaker, words):
+        log = self._log_proc
+        log.debug('<{}> {}'.format(speaker, ' '.join(words)))
+
+    def _get_enforce_highlight_spam(self):
+        return self._conf.getboolean(
+            'highlight_spam', 'enabled', fallback=False)
 
     def _shutdown(self):
         log = self._log_proc

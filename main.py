@@ -58,7 +58,8 @@ def main():
     channel_name = gs['conf']['ii']['channel']
 
     gs['procs']['log'] = LogProcess(gs,
-        debug='/dev/stdout', overwrite=['debug'])
+        debug=os.path.join(server_dir, channel_name, 'debug.log'),
+        overwrite=[])
     gs['procs']['chan_op'] = ChanOpProcess(gs)
     gs['procs']['watch_chan'] = WatchFileProcess(
         os.path.join(server_dir, channel_name, 'out'), 'chan', gs)

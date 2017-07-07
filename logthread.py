@@ -1,12 +1,11 @@
 from datetime import datetime
-from multiprocessing import Queue
-from queue import Empty
-from pbprocess import PBProcess
+from queue import Empty, Queue
+from pbthread import PBThread
 
-class LogProcess(PBProcess):
+class LogThread(PBThread):
     def __init__(self, global_state, error=None, warn=None, notice=None,
         info=None, debug=None, overwrite=[]):
-        PBProcess.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter)
 
         self._logs = {}
         for level, fname in ('debug', debug), \
@@ -24,7 +23,7 @@ class LogProcess(PBProcess):
         self.update_global_state(global_state)
 
     def _enter(self):
-        self.notice('Started LogProcess instance')
+        self.notice('Started LogThread instance')
         for l in self._logs:
             log = self._logs[l]
             if log['fname']:
@@ -38,8 +37,8 @@ class LogProcess(PBProcess):
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
             else:
-                fd = LogProcess._get_fd(self._logs, level)
-                if fd: LogProcess._log_file(fd, ts, level, s)
+                fd = LogThread._get_fd(self._logs, level)
+                if fd: LogThread._log_file(fd, ts, level, s)
 
     def flush(self):
         for l in self._logs:
@@ -47,9 +46,9 @@ class LogProcess(PBProcess):
             if log['fd']: log['fd'].flush()
 
     def _shutdown(self):
-        fd = LogProcess._get_fd(self._logs, 'notice')
-        if fd: LogProcess._log_file(fd, datetime.now(),
-            'notice', 'LogProcess going away')
+        fd = LogThread._get_fd(self._logs, 'notice')
+        if fd: LogThread._log_file(fd, datetime.now(),
+            'notice', 'LogThread going away')
         self.flush()
         for l in self._logs:
             log = self._logs[l]
@@ -86,6 +85,6 @@ class LogProcess(PBProcess):
 
     def update_global_state(self, gs):
         self._is_shutting_down = gs['events']['is_shutting_down']
-        fd = LogProcess._get_fd(self._logs, 'info')
-        if fd: LogProcess._log_file(fd, datetime.now(),
-            'info', 'LogProcess updated state')
+        fd = LogThread._get_fd(self._logs, 'info')
+        if fd: LogThread._log_file(fd, datetime.now(),
+            'info', 'LogThread updated state')

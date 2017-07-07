@@ -1,23 +1,29 @@
-from multiprocessing import Queue
-from queue import Empty
-from pbprocess import PBProcess
+import json
+import re
+from queue import Empty, Queue
+from pbthread import PBThread
 
-class ChanOpProcess(PBProcess):
+class ChanOpThread(PBThread):
     def __init__(self, global_state):
-        PBProcess.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter)
         self._message_queue = Queue(100)
         self.update_global_state(global_state)
     
     def update_global_state(self, gs):
-        self._log_proc = gs['procs']['log']
+        self._log_proc = gs['threads']['log']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
+        self._banned_patterns = []
+        if 'pats' in self._conf['banned_patterns']:
+            for p in json.loads(self._conf['banned_patterns']['pats']):
+                self._banned_patterns.append(re.compile(p))
+                if self._log_proc: self._log_proc.debug(p)
         if self._log_proc:
-            self._log_proc.info('ChanOpProcess updated state')
+            self._log_proc.info('ChanOpThread updated state')
 
     def _enter(self):
         log = self._log_proc
-        log.notice('Started ChanOpProcess instance')
+        log.notice('Started ChanOpThread instance')
         while not self._is_shutting_down.is_set():
             type, line = "", ""
             try:
@@ -43,14 +49,18 @@ class ChanOpProcess(PBProcess):
     def _proc_chan_msg(self, speaker, words):
         log = self._log_proc
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
+        if self._contains_banned_pattern(words):
+            log.notice('{} said a banned pattern'.format(speaker))
 
-    def _get_enforce_highlight_spam(self):
-        return self._conf.getboolean(
-            'highlight_spam', 'enabled', fallback=False)
+    def _contains_banned_pattern(self, words):
+        words = ' '.join([ w.lower() for w in words ])
+        for bp in self._banned_patterns:
+            if bp.search(words): return True
+        return False
 
     def _shutdown(self):
         log = self._log_proc
-        log.notice('ChanOpProcess going away')
+        log.notice('ChanOpThread going away')
 
     def recv_line(self, type, line):
         self._message_queue.put( (type, line) )

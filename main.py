@@ -9,8 +9,8 @@ from threading import Event
 from signalstuff import *
 from logthread import LogThread
 from watchfilethread import WatchFileThread
-#from chanopprocess import ChanOpProcess
-#from iiwatchdogprocess import IIWatchdogProcess
+from chanopthread import ChanOpThread
+from iiwatchdogthread import IIWatchdogThread
 
 #def share_gs(gs, threads):
 #    for proc in threads:
@@ -62,15 +62,14 @@ def main():
         #overwrite=[])
         debug='/dev/stdout',
         overwrite=['debug'])
-    #gs['threads']['chan_op'] = ChanOpProcess(gs)
+    gs['threads']['chan_op'] = ChanOpThread(gs)
     gs['threads']['watch_chan'] = WatchFileThread(
-        #os.path.join(server_dir, channel_name, 'out'), 'chan', gs)
-        'chan.txt', 'chan', gs)
-    #gs['threads']['watch_serv'] = WatchFileProcess(
-    #    os.path.join(server_dir, 'out'), 'serv', gs)
-    #gs['threads']['watch_priv'] = WatchFileProcess(
-    #    os.path.join(server_dir, 'pastly_bot', 'out'), 'priv', gs)
-    #gs['threads']['ii_watchdog'] = IIWatchdogProcess(gs)
+        os.path.join(server_dir, channel_name, 'out'), 'chan', gs)
+    gs['threads']['watch_serv'] = WatchFileThread(
+        os.path.join(server_dir, 'out'), 'serv', gs)
+    gs['threads']['watch_priv'] = WatchFileThread(
+        os.path.join(server_dir, 'pastly_bot', 'out'), 'priv', gs)
+    gs['threads']['ii_watchdog'] = IIWatchdogThread(gs)
     for t in gs['threads']:
         thread = gs['threads'][t]
         if thread: thread.start()

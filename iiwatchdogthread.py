@@ -1,11 +1,10 @@
 import os
 import subprocess
-from pbprocess import PBProcess
-from signalstuff import *
+from pbthread import PBThread
 
-class IIWatchdogProcess(PBProcess):
+class IIWatchdogThread(PBThread):
     def __init__(self, global_state):
-        PBProcess.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter)
         self.update_global_state(global_state)
 
     def _enter(self):
@@ -21,19 +20,17 @@ class IIWatchdogProcess(PBProcess):
         while True:
             self._prepare_ircdir()
             log.notice('(Re)Starting ii process')
-            set_signals(self._ss, *get_default_signals(self._ss))
             ii = subprocess.Popen(
                 [ii_bin,'-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
                 env={'PASS': server_pass},
             )
-            pop_signals_from_stack(self._ss)
             while not self._is_shutting_down.wait(10):
                 # if we aren't shutting down and we have a return code,
                 # then we need to restart the process. First exit this loop
                 if ii.poll() != None:
                     log.debug('ii process went away')
                     break
-            # if we have a return code from the ii sub-sub process, we just
+            # if we have a return code from the ii sub process, we just
             # exited the above loop and should restart this loop and thus
             # restart the ii process.
             if ii.poll() != None:
@@ -52,8 +49,7 @@ class IIWatchdogProcess(PBProcess):
         os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
 
     def update_global_state(self, gs):
-        self._log_proc = gs['procs']['log']
-        self._ss = gs['signal_stack']
+        self._log_proc = gs['threads']['log']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
-        if self._log_proc: self._log_proc.info('IIWatchProcess updated state')
+        if self._log_proc: self._log_proc.info('IIWatchThread updated state')

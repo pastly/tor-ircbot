@@ -1,5 +1,4 @@
 from pbthread import PBThread
-from signalstuff import *
 import subprocess
 import time
 from random import random
@@ -15,20 +14,18 @@ class WatchFileThread(PBThread):
         log = self._log_proc
         log.notice('Started WatchFileThread {} {} instance'.format(
             self._type, self._fname))
-        #set_signals(self._ss, *get_default_signals(self._ss))
         sub = subprocess.Popen(['tail','-F','-n','0',self._fname],
             stdout=subprocess.PIPE,
             bufsize=1)
-        #pop_signals_from_stack(self._ss)
         while not self._is_shutting_down.is_set():
             line_ = sub.stdout.readline()
             try:
                 line = line_.decode('utf8')
                 line = line[:-1]
-                #if len(line) and self._chanop_proc:
-                #    co = self._chanop_proc
-                #    co.recv_line(self._type, line)
-                log.debug("[{}] {}".format(self._type, line))
+                if len(line) and self._chanop_proc:
+                    co = self._chanop_proc
+                    co.recv_line(self._type, line)
+                #if len(line): log.debug("[{}] {}".format(self._type, line))
             except UnicodeDecodeError:
                 log.warn('Can\'t decode line, so ignoring: {}'.format(line_))
                 continue
@@ -45,7 +42,6 @@ class WatchFileThread(PBThread):
         self._log_proc = gs['threads']['log']
         self._chanop_proc = gs['threads']['chan_op']
         self._is_shutting_down = gs['events']['is_shutting_down']
-        self._ss = gs['signal_stack']
         if self._log_proc:
             self._log_proc.info(
                 'WatchFileThread {} {} updated state'.format(

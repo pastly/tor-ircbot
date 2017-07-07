@@ -10,19 +10,19 @@ class ChanOpThread(PBThread):
         self.update_global_state(global_state)
     
     def update_global_state(self, gs):
-        self._log_proc = gs['threads']['log']
+        self._log_thread = gs['threads']['log']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._banned_patterns = []
         if 'pats' in self._conf['banned_patterns']:
             for p in json.loads(self._conf['banned_patterns']['pats']):
                 self._banned_patterns.append(re.compile(p))
-                if self._log_proc: self._log_proc.debug(p)
-        if self._log_proc:
-            self._log_proc.info('ChanOpThread updated state')
+                if self._log_thread: self._log_thread.debug(p)
+        if self._log_thread:
+            self._log_thread.info('ChanOpThread updated state')
 
     def _enter(self):
-        log = self._log_proc
+        log = self._log_thread
         log.notice('Started ChanOpThread instance')
         while not self._is_shutting_down.is_set():
             type, line = "", ""
@@ -47,7 +47,7 @@ class ChanOpThread(PBThread):
                 self._proc_chan_msg(speaker, words)
 
     def _proc_chan_msg(self, speaker, words):
-        log = self._log_proc
+        log = self._log_thread
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if self._contains_banned_pattern(words):
             log.notice('{} said a banned pattern'.format(speaker))
@@ -59,7 +59,7 @@ class ChanOpThread(PBThread):
         return False
 
     def _shutdown(self):
-        log = self._log_proc
+        log = self._log_thread
         log.notice('ChanOpThread going away')
 
     def recv_line(self, type, line):

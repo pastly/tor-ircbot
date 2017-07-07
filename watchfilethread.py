@@ -11,7 +11,7 @@ class WatchFileThread(PBThread):
         self.update_global_state(global_state)
 
     def _enter(self):
-        log = self._log_proc
+        log = self._log_thread
         log.notice('Started WatchFileThread {} {} instance'.format(
             self._type, self._fname))
         sub = subprocess.Popen(['tail','-F','-n','0',self._fname],
@@ -33,16 +33,16 @@ class WatchFileThread(PBThread):
         log.notice('Stopping tail process for {}'.format(self._fname))
 
     def _shutdown(self):
-        log = self._log_proc
+        log = self._log_thread
         if log: log.notice('WatchFileThread {} {} going away'.format(
             self._type, self._fname))
         return
 
     def update_global_state(self, gs):
-        self._log_proc = gs['threads']['log']
+        self._log_thread = gs['threads']['log']
         self._chanop_proc = gs['threads']['chan_op']
         self._is_shutting_down = gs['events']['is_shutting_down']
-        if self._log_proc:
-            self._log_proc.info(
+        if self._log_thread:
+            self._log_thread.info(
                 'WatchFileThread {} {} updated state'.format(
                     self._type, self._fname))

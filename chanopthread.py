@@ -11,6 +11,8 @@ class ChanOpThread(PBThread):
     
     def update_global_state(self, gs):
         self._log_thread = gs['threads']['log']
+        self._operator_action_thread = gs['threads']['op_action']
+        self._out_msg_thread = gs['threads']['out_message']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._banned_patterns = []
@@ -37,8 +39,7 @@ class ChanOpThread(PBThread):
             speaker = tokens[2]
             words = tokens[3:]
             if speaker == '-!-':
-                log.debug('Ignoring for now: {}'.format(line))
-                continue
+                self._proc_ctrl_msg(speaker, words)
             elif speaker[0] != '<' or speaker[-1] != '>':
                 log.debug('Ignoring weird speaker: {}'.format(speaker))
                 continue
@@ -46,10 +47,27 @@ class ChanOpThread(PBThread):
                 speaker = speaker[1:-1].lower()
                 self._proc_chan_msg(speaker, words)
 
+    def _proc_ctrl_msg(self, speaker, words):
+        assert speaker == '-!-'
+        channel_name = self._conf['ii']['channel']
+        log = self._log_thread
+        oat = self._operator_action_thread
+        if ' '.join(words[1:3]) == 'changed mode/{}'.format(channel_name):
+            who = words[0]
+            mode = words[4]
+            arg = words[5] if len(words) >= 6 else None
+            if mode == '+o' and arg == 'pastly_bot': oat.set_opped(True)
+            if mode == '-o' and arg == 'pastly_bot': oat.set_opped(False)
+        else:
+            log.debug('Ignoring ctrl msg:',' '.join(words))
+
     def _proc_chan_msg(self, speaker, words):
         log = self._log_thread
+        oat = self._operator_action_thread
+        out_msg = self._out_msg_thread
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
         if self._contains_banned_pattern(words):
+            oat.temporary_mute(enabled=True)
             log.notice('{} said a banned pattern'.format(speaker))
 
     def _contains_banned_pattern(self, words):

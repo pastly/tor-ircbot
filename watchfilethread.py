@@ -22,8 +22,8 @@ class WatchFileThread(PBThread):
             try:
                 line = line_.decode('utf8')
                 line = line[:-1]
-                if len(line) and self._chanop_proc:
-                    co = self._chanop_proc
+                if len(line) and self._chanop_thread:
+                    co = self._chanop_thread
                     co.recv_line(self._type, line)
                 #if len(line): log.debug("[{}] {}".format(self._type, line))
             except UnicodeDecodeError:
@@ -40,7 +40,7 @@ class WatchFileThread(PBThread):
 
     def update_global_state(self, gs):
         self._log_thread = gs['threads']['log']
-        self._chanop_proc = gs['threads']['chan_op']
+        self._chanop_thread = gs['threads']['chan_op']
         self._is_shutting_down = gs['events']['is_shutting_down']
         if self._log_thread:
             self._log_thread.info(

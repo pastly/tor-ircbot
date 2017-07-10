@@ -1,7 +1,6 @@
 import signal
 from time import time
-from queue import Empty, PriorityQueue
-from multiprocessing import Event, Process, Queue
+from queue import Empty, PriorityQueue, Queue
 class ActionQueue:
 
     def __init__(self, long_timeout=10, time_between_actions_func=None):

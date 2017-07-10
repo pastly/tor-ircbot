@@ -16,7 +16,6 @@ class IIWatchdogThread(PBThread):
         port = conf['ii']['port']
         server_pass = conf['ii']['server_pass']
         ircdir = conf['ii']['ircdir']
-        print(ii_bin, nick, server, port, server_pass, ircdir)
         while True:
             self._prepare_ircdir()
             log.notice('(Re)Starting ii process')

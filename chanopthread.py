@@ -1,12 +1,32 @@
 import json
 import re
 from queue import Empty, Queue
+from threading import Event
+from member import Member, MemberList
+from pbtimer import *
 from pbthread import PBThread
 
 class ChanOpThread(PBThread):
+
+    non_nick_punctuation = [':',',','!','?']
+    nick_prefixes = ['@','+']
+    non_nick_punctuation.extend(nick_prefixes)
+    common_words = \
+    ['the','be','to','of','and','a','in','that','have','i','it','for','not','on',
+    'with','he','as','you','do','at','this','but','his','by','from','they','we',
+    'say','her','she','or','an','will','my','one','all','would','there','their',
+    'what','so','up','out','if','about','who','get','which','go','me','when',
+    'make','can','like','time','no','just','him','know','take','people','into',
+    'year','your','good','some','could','them','see','other','than','then','now',
+    'look','only','come','its','over','thnk','also','back','after','use','two',
+    'how','our','work','first','well','way','even','new','want','because','any',
+    'these','give','day','most','us']
+
     def __init__(self, global_state):
         PBThread.__init__(self, self._enter)
         self._message_queue = Queue(100)
+        self._members = MemberList()
+        self._is_getting_members = Event()
         self.update_global_state(global_state)
     
     def update_global_state(self, gs):
@@ -26,6 +46,11 @@ class ChanOpThread(PBThread):
     def _enter(self):
         log = self._log_thread
         log.notice('Started ChanOpThread instance')
+        fire_one_off_event(5, self._update_members_event_callback)
+        self._update_members_event = RepeatedTimer(
+            60*60*8,
+            self._update_members_event_callback)
+        channel_name = self._conf['ii']['channel']
         while not self._is_shutting_down.is_set():
             type, line = "", ""
             try:
@@ -33,16 +58,21 @@ class ChanOpThread(PBThread):
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
-            if type != 'chan': continue
+            #if type != 'chan': continue
             if not len(line): continue
             tokens = line.split()
             speaker = tokens[2]
             words = tokens[3:]
             if speaker == '-!-':
                 self._proc_ctrl_msg(speaker, words)
+            elif speaker == channel_name:
+                if ' '.join(words) == 'End of /WHO list.':
+                    self._is_getting_members.clear()
+                elif self._is_getting_members.is_set():
+                    user, host, server, nick, unknown1, unknown2 = words[0:6]
+                    self._add_member(nick, user, host)
             elif speaker[0] != '<' or speaker[-1] != '>':
                 log.debug('Ignoring weird speaker: {}'.format(speaker))
-                continue
             else:
                 speaker = speaker[1:-1].lower()
                 self._proc_chan_msg(speaker, words)
@@ -69,6 +99,9 @@ class ChanOpThread(PBThread):
         if self._contains_banned_pattern(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} said a banned pattern'.format(speaker))
+        elif self._is_highlight_spam(words):
+            oat.temporary_mute(enabled=True)
+            log.notice('{} highlight spammed'.format(speaker))
 
     def _contains_banned_pattern(self, words):
         words = ' '.join([ w.lower() for w in words ])
@@ -76,8 +109,54 @@ class ChanOpThread(PBThread):
             if bp.search(words): return True
         return False
 
+    def _is_highlight_spam(self, words):
+        log = self._log_thread
+        limit = int(self._conf['highlight_spam']['mention_limit'])
+        mems = self._members
+        words = [ w.lower() for w in words ]
+        words = [ w for w in words if w not in ChanOpThread.common_words ]
+        matches = set()
+        # first try straight nick mentions with no prefix/suffix obfuscation
+        for match in [ w for w in words if mems.contains(w) ]:
+            matches.add(match)
+        if len(matches) > limit: return True
+        # then try removing leading/trailing punctuation from words and see if
+        # they then start to look like nicks. Not all punctuation is illegal
+        punc = ''.join(ChanOpThread.non_nick_punctuation)
+        for word in words:
+            word = word.lstrip(punc).rstrip(punc)
+            if mems.contains(word): matches.add(word)
+        log.debug("{} nicks mentioned".format(len(matches)))
+        if len(matches) > limit: return True
+        return False
+
+    def _update_members_event_callback(self):
+        self._members = MemberList()
+        log = self._log_thread
+        out_msg = self._out_msg_thread
+        channel_name = self._conf['ii']['channel']
+        out_msg.add(self._ask_for_new_members)
+
+    def _ask_for_new_members(self):
+        log = self._log_thread
+        out_msg = self._out_msg_thread
+        channel_name = self._conf['ii']['channel']
+        log.notice('Clearing members set. Asking for members again.')
+        self._is_getting_members.set()
+        out_msg.servmsg('/who {}'.format(channel_name))
+
+    def _add_member(self, nick, user=None, host=None):
+        log = self._log_thread
+        old_len = len(self._members)
+        self._members.add(nick, user, host)
+        log.debug('Added {} ({})'.format(Member(nick,user,host),
+            len(self._members)))
+        if len(self._members) <= old_len:
+            log.warn('Adding {} to members didn\'t inc length'.format(nick))
+
     def _shutdown(self):
         log = self._log_thread
+        self._update_members_event.stop()
         log.notice('ChanOpThread going away')
 
     def recv_line(self, type, line):

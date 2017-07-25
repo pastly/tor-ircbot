@@ -1,5 +1,8 @@
 from threading import Timer
 
+def fire_one_off_event(interval, func, args=None, kwargs=None):
+    return Timer(interval, func, args=args, kwargs=kwargs).start()
+
 # https://stackoverflow.com/a/13151104
 
 class RepeatedTimer(object):

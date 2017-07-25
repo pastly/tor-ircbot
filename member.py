@@ -9,17 +9,17 @@ class Member:
         return '{}!{}@{}'.format(self.nick, self.user, self.host)
 
     def set(self, nick=None, user=None, host=None):
-        if nick: self.__set_nick(nick)
-        if user: self.__set_user(user)
-        if host: self.__set_host(host)
+        if nick: self._set_nick(nick)
+        if user: self._set_user(user)
+        if host: self._set_host(host)
 
-    def __set_nick(self, nick):
+    def _set_nick(self, nick):
         self.nick = nick
 
-    def __set_user(self, user):
+    def _set_user(self, user):
         self.user = user
 
-    def __set_host(self, host):
+    def _set_host(self, host):
         self.host = host
 
 class MemberList:
@@ -42,14 +42,14 @@ class MemberList:
         else:
             member = self.__getitem__(nick)
             member.set(user=user, host=host)
-        self.__trim_recent()
+        self._trim_recent()
 
     def remove(self, nick):
         member = self.__getitem__(nick)
         if not member: return
         self._members.discard(member)
         self._recent = [ (at, m) for at, m in self._recent if m.nick != nick ]
-        self.__trim_recent()
+        self._trim_recent()
 
     def discard(self, nick):
         return self.remove(nick)
@@ -59,12 +59,9 @@ class MemberList:
 
         match_nick, match_user, match_host = False, False, False
 
-        if nick:
-            match_nick = self.__contains_nick(nick)
-        if user:
-            match_user = self.__contains_user(user)
-        if host:
-            match_host = self.__contains_host(host)
+        if nick: match_nick = self._contains_nick(nick)
+        if user: match_user = self._contains_user(user)
+        if host: match_host = self._contains_host(host)
 
         if nick and not user and not host:
             return True if match_nick else False
@@ -85,17 +82,17 @@ class MemberList:
 
         return False
 
-    def __contains_nick(self, nick):
+    def _contains_nick(self, nick):
         m = self.__getitem__(nick)
         return m if m else False
 
-    def __contains_user(self, user):
+    def _contains_user(self, user):
         user = user.lower()
         for m in self:
             if m.user.lower() == user: return m
         return False
 
-    def __contains_host(self, host):
+    def _contains_host(self, host):
         host = host.lower()
         for m in self:
             if m.host.lower() == host: return m
@@ -124,7 +121,7 @@ class MemberList:
             return matching_users
         return matching_hosts
 
-    def __trim_recent(self):
+    def _trim_recent(self):
         new_recent = []
         now = time()
         for at, m in self._recent:

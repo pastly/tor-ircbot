@@ -11,6 +11,7 @@ from tokenbucket import token_bucket
 from logthread import LogThread
 from watchfilethread import WatchFileThread
 from chanopthread import ChanOpThread
+from commandlistenerthread import CommandListenerThread
 from iiwatchdogthread import IIWatchdogThread
 from operatoractionthread import OperatorActionThread
 from outboundmessagethread import OutboundMessageThread
@@ -24,6 +25,7 @@ def main():
             'watch_serv': None,
             'watch_priv': None,
             'chan_op': None,
+            'command_listener': None,
             'ii_watchdog': None,
             'op_action': None,
             'out_message': None,
@@ -59,6 +61,7 @@ def main():
         time_between_actions_func=token_bucket(5, 0.505))
     gs['threads']['op_action'] = OperatorActionThread(gs)
     gs['threads']['chan_op'] = ChanOpThread(gs)
+    gs['threads']['command_listener'] = CommandListenerThread(gs)
     gs['threads']['watch_chan'] = WatchFileThread(
         os.path.join(server_dir, channel_name, 'out'), 'chan', gs)
     gs['threads']['watch_serv'] = WatchFileThread(

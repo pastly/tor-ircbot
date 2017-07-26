@@ -1,8 +1,13 @@
 import os
+import random
 from pbthread import PBThread
 from actionqueue import ActionQueue
 
 class OutboundMessageThread(PBThread):
+    pong_msgs = [ 'pong', 'PONG', 'POOOONG!!!!', 'JFC pong', 'No. Just stop.',
+        'WTF do you want from me?', 'I\'m busy', 'moo', 'ACK', 'RST',
+        'You\'re not the boss of me.'
+    ]
     def __init__(self, global_state,
         long_timeout=5, time_between_actions_func=None):
         PBThread.__init__(self, self._enter)
@@ -39,5 +44,5 @@ class OutboundMessageThread(PBThread):
     def privmsg(self, nick, message):
         self.servmsg('/privmsg {} {}'.format(nick, message))
 
-    def ping(self, nick):
-        self.privmsg(nick, 'pong')
+    def pong(self, nick):
+        self.privmsg(nick, random.choice(OutboundMessageThread.pong_msgs))

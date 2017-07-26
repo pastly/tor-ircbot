@@ -48,7 +48,7 @@ class OperatorActionThread(PBThread):
                     sleep(1.0)
                 continue
             args, kwargs = item
-            log.debug('OperatorActionThread: item: {} {}'.format(args, kwargs))
+            #log.debug('OperatorActionThread: item: {} {}'.format(args, kwargs))
             self._out_msg.add(*args, **kwargs)
         self._shutdown()
 
@@ -88,6 +88,14 @@ class OperatorActionThread(PBThread):
             log.info('Unmute timer done. Unmuting')
             self.recv_action(out_msg.servmsg,
                 ['/mode {} -RM'.format(channel_name)])
+
+    def set_chan_mode(self, mode_str, reason):
+        log = self._log_thread
+        out_msg = self._out_msg
+        channel_name = self._conf['ii']['channel']
+        log.info('Setting channel mode {} because {}'.format(mode_str, reason))
+        self.recv_action(out_msg.servmsg,
+            ['/mode {} {}'.format(channel_name, mode_str)])
 
     def set_opped(self, opped):
         log = self._log_thread

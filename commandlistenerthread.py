@@ -1,5 +1,5 @@
-from queue import Empty, Queue
 from pbthread import PBThread
+from queue import Empty, Queue
 import json
 class CommandListenerThread(PBThread):
     def __init__(self, global_state):
@@ -10,12 +10,14 @@ class CommandListenerThread(PBThread):
     def update_global_state(self, gs):
         self._log_thread = gs['threads']['log']
         self._out_msg_thread = gs['threads']['out_message']
+        self._operator_action_thread = gs['threads']['op_action']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         if 'masters' not in self._conf['general']:
             self._log_thread.warn('No masters are configured so the '
                 'CommandListenerThread will likely be useless and you won\'t '
                 'be able to control the bot via IRC private messages.')
+            self._masters = []
         else:
             self._masters = json.loads(self._conf['general']['masters'])
             self._log_thread.info('Configured masters: {}'.format(
@@ -45,6 +47,20 @@ class CommandListenerThread(PBThread):
                 continue
             if ' '.join(words).lower() == 'ping':
                 self._out_msg_thread.pong(speaker)
+                continue
+            elif words[0].lower() == 'mode':
+                self._proc_mode_msg(speaker, words)
+                continue
+            else:
+                self._out_msg_thread.privmsg(speaker, 'I don\'t understand.')
+                continue
+
+    def _proc_mode_msg(self, speaker, words):
+        assert words[0].lower() == 'mode'
+        assert speaker in self._masters
+        mode_str = ' '.join(words[1:])
+        self._operator_action_thread.set_chan_mode(mode_str,
+            '{} said so'.format(speaker))
 
     def _shutdown(self):
         log = self._log_thread

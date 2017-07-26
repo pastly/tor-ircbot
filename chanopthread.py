@@ -53,12 +53,11 @@ class ChanOpThread(PBThread):
         channel_name = self._conf['ii']['channel']
         while not self._is_shutting_down.is_set():
             type, line = "", ""
-            try:
-                type, line = self._message_queue.get(timeout=1)
+            try: type, line = self._message_queue.get(timeout=1)
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
-            #if type != 'chan': continue
+            if type not in ['chan', 'serv']: continue
             if not len(line): continue
             tokens = line.split()
             speaker = tokens[2]

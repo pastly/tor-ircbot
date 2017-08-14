@@ -98,9 +98,22 @@ class ChanOpThread(PBThread):
         if self._contains_banned_pattern(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} said a banned pattern'.format(speaker))
+            if self._members.contains(speaker):
+                mem = self._members[speaker]
+                oat.set_chan_mode('+qq {}!*@* *!*@{}'.format(mem.nick,
+                    mem.host), 'banned pattern')
+            else:
+                oat.set_chan_mode('+q {}!*@*'.format(speaker), 'banned pattern')
         elif self._is_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} highlight spammed'.format(speaker))
+            if self._members.contains(speaker):
+                mem = self._members[speaker]
+                oat.set_chan_mode('+bb {}!*@* *!*@{}'.format(mem.nick,
+                    mem.host), 'mass highlight spam')
+            else:
+                oat.set_chan_mode('+b {}!*@*'.format(speaker),
+                    'mass highlight spam')
 
     def _contains_banned_pattern(self, words):
         words = ' '.join([ w.lower() for w in words ])

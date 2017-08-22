@@ -87,6 +87,25 @@ class ChanOpThread(PBThread):
             arg = words[5] if len(words) >= 6 else None
             if mode == '+o' and arg == 'pastly_bot': oat.set_opped(True)
             if mode == '-o' and arg == 'pastly_bot': oat.set_opped(False)
+        elif ' '.join(words[1:4]) == 'has joined {}'.format(channel_name):
+            s = words[0]
+            nick = s.split('(')[0]
+            user = s.split('(')[1].split('@')[0]
+            host = s.split('@')[1].split(')')[0]
+            self._members.add(nick,user,host)
+            log.info('Added (join)','{}!{}@{} ({})'.format(nick,user,host,
+                len(self._members)))
+        elif ' '.join(words[1:4]) == 'has left {}'.format(channel_name):
+            s = words[0]
+            nick = s.split('(')[0]
+            self._members.remove(nick)
+            log.info('Removed (left) {} ({})'.format(nick, len(self._members)))
+        elif ' '.join(words[1:3]) == 'has quit':
+            s = words[0]
+            nick = s.split('(')[0]
+            if self._members.contains(nick):
+                self._members.remove(nick)
+                log.info('Removed (quit) {} ({})'.format(nick, len(self._members)))
         else:
             log.debug('Ignoring ctrl msg:',' '.join(words))
 

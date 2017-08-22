@@ -8,7 +8,7 @@ from outboundmessagethread import OutboundMessageThread
 
 class OperatorActionThread(PBThread):
     def __init__(self, global_state):
-        PBThread.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter, name='OperatorAction')
         self._is_op = Event()
         self._waiting_actions = Queue(100)
         self._unmute_timer = None
@@ -16,13 +16,13 @@ class OperatorActionThread(PBThread):
         self.update_global_state(global_state)
 
     def update_global_state(self, gs):
-        self._log_thread = gs['threads']['log']
+        self._log = gs['log']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._out_msg = gs['threads']['out_message']
 
     def _enter(self):
-        log = self._log_thread
+        log = self._log
         log.notice('Started OperatorActionThread instance')
         while not self._is_shutting_down.is_set():
             while not (self._is_op.wait(1) or self._is_shutting_down.is_set()):
@@ -53,12 +53,12 @@ class OperatorActionThread(PBThread):
         self._shutdown()
 
     def _shutdown(self):
-        log = self._log_thread
+        log = self._log
         log.notice('OperatorActionThread going away')
 
     def recv_action(self, *args, **kwargs):
         if not self._is_op.is_set():
-            log = self._log_thread
+            log = self._log
             log.debug('OperatorActionThread: Asking to be opped')
             self._out_msg.add(self._out_msg.privmsg,
                 ['chanserv', 'op {} pastly_bot'.format(
@@ -67,7 +67,7 @@ class OperatorActionThread(PBThread):
         #print(args, kwargs)
 
     def temporary_mute(self, enabled=True):
-        log = self._log_thread
+        log = self._log
         out_msg = self._out_msg
         channel_name = self._conf['ii']['channel']
         if enabled and self._last_mute + 5 < time():
@@ -90,7 +90,7 @@ class OperatorActionThread(PBThread):
                 ['/mode {} -RM'.format(channel_name)])
 
     def set_chan_mode(self, mode_str, reason):
-        log = self._log_thread
+        log = self._log
         out_msg = self._out_msg
         channel_name = self._conf['ii']['channel']
         log.info('Setting channel mode {} because {}'.format(mode_str, reason))
@@ -98,7 +98,7 @@ class OperatorActionThread(PBThread):
             ['/mode {} {}'.format(channel_name, mode_str)])
 
     def set_opped(self, opped):
-        log = self._log_thread
+        log = self._log
         if opped: self._is_op.set()
         else: self._is_op.clear()
         log.notice('We have been {}'.format("opped" if opped else "deopped"))

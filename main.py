@@ -8,19 +8,18 @@ from threading import Event
 # my stuff
 from signalstuff import *
 from tokenbucket import token_bucket
-from logthread import LogThread
 from watchfilethread import WatchFileThread
 from chanopthread import ChanOpThread
 from commandlistenerthread import CommandListenerThread
 from iiwatchdogthread import IIWatchdogThread
 from operatoractionthread import OperatorActionThread
 from outboundmessagethread import OutboundMessageThread
+from pastlylogger import PastlyLogger
 
 def main():
     config_file = 'config.ini'
     gs = {
         'threads': {
-            'log': None,
             'watch_chan': None,
             'watch_serv': None,
             'watch_priv': None,
@@ -36,6 +35,8 @@ def main():
         },
         'signal_stack': [],
         'conf': ConfigParser(),
+        'log': PastlyLogger(debug='/dev/stdout', overwrite=['debug'],
+            log_threads=True, default='notice')
     }
 
     def sigint(signum, stack_frame):
@@ -52,11 +53,8 @@ def main():
         gs['conf']['ii']['ircdir'],gs['conf']['ii']['server'])
     channel_name = gs['conf']['ii']['channel']
 
-    gs['threads']['log'] = LogThread(gs,
-        #debug=os.path.join(server_dir, channel_name, 'debug.log'),
-        #overwrite=[])
-        debug='/dev/stdout',
-        overwrite=['debug'])
+    log = PastlyLogger(debug='/dev/stdout', overwrite=['debug'],
+        log_threads=True, default='notice')
     gs['threads']['out_message'] = OutboundMessageThread(gs, long_timeout=5,
         time_between_actions_func=token_bucket(5, 0.505))
     gs['threads']['op_action'] = OperatorActionThread(gs)

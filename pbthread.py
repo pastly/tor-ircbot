@@ -2,8 +2,8 @@ from threading import Thread
 class PBThread:
     # All children of PBThread should have an __init__ that calls
     # this as the very first thing
-    def __init__(self, target, *args, **kwargs):
-        self._thread = Thread(target=target, args=args, kwargs=kwargs)
+    def __init__(self, target, *args, name=None, **kwargs):
+        self._thread = Thread(target=target, args=args, kwargs=kwargs, name=name)
         self._started = False
         self._gs = None
 

@@ -3,30 +3,30 @@ from queue import Empty, Queue
 import json
 class CommandListenerThread(PBThread):
     def __init__(self, global_state):
-        PBThread.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter, name='CommandListener')
         self._message_queue = Queue(100)
         self.update_global_state(global_state)
 
     def update_global_state(self, gs):
-        self._log_thread = gs['threads']['log']
+        self._log = gs['log']
         self._out_msg_thread = gs['threads']['out_message']
         self._operator_action_thread = gs['threads']['op_action']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         if 'masters' not in self._conf['general']:
-            self._log_thread.warn('No masters are configured so the '
+            self._log.warn('No masters are configured so the '
                 'CommandListenerThread will likely be useless and you won\'t '
                 'be able to control the bot via IRC private messages.')
             self._masters = []
         else:
             self._masters = json.loads(self._conf['general']['masters'])
-            self._log_thread.info('Configured masters: {}'.format(
+            self._log.info('Configured masters: {}'.format(
                 ', '.join(self._masters)))
-        if self._log_thread:
-            self._log_thread.info('CommandListenerThread updated state')
+        if self._log:
+            self._log.info('CommandListenerThread updated state')
 
     def _enter(self):
-        log = self._log_thread
+        log = self._log
         log.notice('Started CommandListenerThread instance')
         while not self._is_shutting_down.is_set():
             type, line = "", ""
@@ -63,7 +63,7 @@ class CommandListenerThread(PBThread):
             '{} said so'.format(speaker))
 
     def _shutdown(self):
-        log = self._log_thread
+        log = self._log
         log.notice('CommandListenerThread going away')
 
     def recv_line(self, type, line):

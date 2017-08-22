@@ -23,14 +23,14 @@ class ChanOpThread(PBThread):
     'these','give','day','most','us']
 
     def __init__(self, global_state):
-        PBThread.__init__(self, self._enter)
+        PBThread.__init__(self, self._enter, name='ChanOp')
         self._message_queue = Queue(100)
         self._members = MemberList()
         self._is_getting_members = Event()
         self.update_global_state(global_state)
     
     def update_global_state(self, gs):
-        self._log_thread = gs['threads']['log']
+        self._log = gs['log']
         self._operator_action_thread = gs['threads']['op_action']
         self._out_msg_thread = gs['threads']['out_message']
         self._conf = gs['conf']
@@ -39,12 +39,12 @@ class ChanOpThread(PBThread):
         if 'pats' in self._conf['banned_patterns']:
             for p in json.loads(self._conf['banned_patterns']['pats']):
                 self._banned_patterns.append(re.compile(p))
-                if self._log_thread: self._log_thread.debug(p)
-        if self._log_thread:
-            self._log_thread.info('ChanOpThread updated state')
+                if self._log: self._log.debug(p)
+        if self._log:
+            self._log.info('ChanOpThread updated state')
 
     def _enter(self):
-        log = self._log_thread
+        log = self._log
         log.notice('Started ChanOpThread instance')
         fire_one_off_event(5, self._update_members_event_callback)
         self._update_members_event = RepeatedTimer(
@@ -79,7 +79,7 @@ class ChanOpThread(PBThread):
     def _proc_ctrl_msg(self, speaker, words):
         assert speaker == '-!-'
         channel_name = self._conf['ii']['channel']
-        log = self._log_thread
+        log = self._log
         oat = self._operator_action_thread
         if ' '.join(words[1:3]) == 'changed mode/{}'.format(channel_name):
             who = words[0]
@@ -91,7 +91,7 @@ class ChanOpThread(PBThread):
             log.debug('Ignoring ctrl msg:',' '.join(words))
 
     def _proc_chan_msg(self, speaker, words):
-        log = self._log_thread
+        log = self._log
         oat = self._operator_action_thread
         out_msg = self._out_msg_thread
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
@@ -122,7 +122,7 @@ class ChanOpThread(PBThread):
         return False
 
     def _is_highlight_spam(self, words):
-        log = self._log_thread
+        log = self._log
         limit = int(self._conf['highlight_spam']['mention_limit'])
         mems = self._members
         words = [ w.lower() for w in words ]
@@ -144,13 +144,13 @@ class ChanOpThread(PBThread):
 
     def _update_members_event_callback(self):
         self._members = MemberList()
-        log = self._log_thread
+        log = self._log
         out_msg = self._out_msg_thread
         channel_name = self._conf['ii']['channel']
         out_msg.add(self._ask_for_new_members)
 
     def _ask_for_new_members(self):
-        log = self._log_thread
+        log = self._log
         out_msg = self._out_msg_thread
         channel_name = self._conf['ii']['channel']
         log.notice('Clearing members set. Asking for members again.')
@@ -158,7 +158,7 @@ class ChanOpThread(PBThread):
         out_msg.servmsg('/who {}'.format(channel_name))
 
     def _add_member(self, nick, user=None, host=None):
-        log = self._log_thread
+        log = self._log
         old_len = len(self._members)
         self._members.add(nick, user, host)
         log.debug('Added {} ({})'.format(Member(nick,user,host),
@@ -167,7 +167,7 @@ class ChanOpThread(PBThread):
             log.warn('Adding {} to members didn\'t inc length'.format(nick))
 
     def _shutdown(self):
-        log = self._log_thread
+        log = self._log
         self._update_members_event.stop()
         log.notice('ChanOpThread going away')
 

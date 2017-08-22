@@ -103,15 +103,17 @@ class PastlyLogger:
 
     def _log_file(fd, lock, log_threads, level, *s):
         assert fd
-        lock.acquire()
-        ts = datetime.now()
-        if log_threads:
-            fd.write('[{}] [{}] [{}] {}\n'.format(ts, level,
-                current_thread().name, ' '.join([str(_) for _ in s])))
-        else:
-            fd.write('[{}] [{}] {}\n'.format(ts, level,
-                ' '.join([str(_) for _ in s])))
-        lock.release()
+        with lock:
+            ts = datetime.now()
+            try:
+                if log_threads:
+                    fd.write('[{}] [{}] [{}] {}\n'.format(ts, level,
+                        current_thread().name, ' '.join([str(_) for _ in s])))
+                else:
+                    fd.write('[{}] [{}] {}\n'.format(ts, level,
+                        ' '.join([str(_) for _ in s])))
+            except UnicodeDecodeError as e:
+                self.warn(e)
 
     def flush(self):
         if self.error_fd: self.error_fd.flush()

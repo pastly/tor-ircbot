@@ -386,9 +386,9 @@ def channel_out_process_line(line):
             who = words[0]
             mode = words[4]
             arg = words[5] if len(words) >= 6 else None
-            if mode == '+o' and arg == 'pastly_bot':
+            if mode == '+o' and arg == 'kist':
                 is_operator.set()
-            elif mode == '-o' and arg == 'pastly_bot':
+            elif mode == '-o' and arg == 'kist':
                 is_operator.clear()
             return
         else:
@@ -722,7 +722,7 @@ def tail_file_process(filename, line_function_handler):
 def as_operator_process():
     log.notice('Starting operator action process')
     outbound_message_queue.add(privmsg,
-        ['chanserv', 'op {} {}'.format(channel_name, 'pastly_bot')],
+        ['chanserv', 'op {} {}'.format(channel_name, 'kist')],
         priority=time()-10)
     if not is_operator.wait(timeout=5):
         log.error('Asked for operator, but didn\'t get it before timeout. '
@@ -736,7 +736,7 @@ def as_operator_process():
         func, args, kwargs = item
         outbound_message_queue.add(func, args, kwargs, priority=time()-10)
     outbound_message_queue.add(privmsg,
-        ['chanserv', 'deop {} {}'.format(channel_name, 'pastly_bot')])
+        ['chanserv', 'deop {} {}'.format(channel_name, 'kist')])
     log.notice('Stopping operator action process')
 
 
@@ -779,7 +779,7 @@ def main():
         args=['{}/{}/out'.format(server_dir, channel_name),
         channel_out_process_line]))
     processes.append(Process(target=tail_file_process,
-        args=['{}/pastly_bot/out'.format(server_dir),
+        args=['{}/kist/out'.format(server_dir),
         privmsg_out_process_line]))
     processes.append(Process(target=tail_file_process,
         args=['{}/log_to_masters'.format(server_dir),

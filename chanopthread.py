@@ -85,8 +85,8 @@ class ChanOpThread(PBThread):
             who = words[0]
             mode = words[4]
             arg = words[5] if len(words) >= 6 else None
-            if mode == '+o' and arg == 'pastly_bot': oat.set_opped(True)
-            if mode == '-o' and arg == 'pastly_bot': oat.set_opped(False)
+            if mode == '+o' and arg == 'kist': oat.set_opped(True)
+            if mode == '-o' and arg == 'kist': oat.set_opped(False)
         elif ' '.join(words[1:4]) == 'has joined {}'.format(channel_name):
             s = words[0]
             nick = s.split('(')[0]

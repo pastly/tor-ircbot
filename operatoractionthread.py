@@ -43,7 +43,7 @@ class OperatorActionThread(PBThread):
                 if self._is_op.is_set():
                     log.debug('OperatorActionThread: Asking to be deopped')
                     self._out_msg.add(self._out_msg.privmsg,
-                        ['chanserv', 'deop {} pastly_bot'.format(
+                        ['chanserv', 'deop {} kist'.format(
                         self._conf['ii']['channel'])])
                     sleep(1.0)
                 continue
@@ -61,7 +61,7 @@ class OperatorActionThread(PBThread):
             log = self._log
             log.debug('OperatorActionThread: Asking to be opped')
             self._out_msg.add(self._out_msg.privmsg,
-                ['chanserv', 'op {} pastly_bot'.format(
+                ['chanserv', 'op {} kist'.format(
                     self._conf['ii']['channel'])])
         self._waiting_actions.put( (args, kwargs) )
         #print(args, kwargs)

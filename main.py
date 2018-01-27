@@ -65,7 +65,7 @@ def main():
     gs['threads']['watch_serv'] = WatchFileThread(
         os.path.join(server_dir, 'out'), 'serv', gs)
     gs['threads']['watch_priv'] = WatchFileThread(
-        os.path.join(server_dir, 'pastly_bot', 'out'), 'priv', gs)
+        os.path.join(server_dir, 'kist', 'out'), 'priv', gs)
     gs['threads']['ii_watchdog'] = IIWatchdogThread(gs)
     for t in gs['threads']:
         thread = gs['threads'][t]

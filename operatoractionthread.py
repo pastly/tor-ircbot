@@ -24,6 +24,10 @@ class OperatorActionThread(PBThread):
     def _enter(self):
         log = self._log
         log.notice('Started OperatorActionThread instance')
+        log.debug('OperatorActionThread: Asking to be deopped')
+        self._out_msg.add(self._out_msg.privmsg,
+            ['chanserv', 'deop {} kist'.format(
+            self._conf['ii']['channel'])])
         while not self._is_shutting_down.is_set():
             while not (self._is_op.wait(1) or self._is_shutting_down.is_set()):
                 pass

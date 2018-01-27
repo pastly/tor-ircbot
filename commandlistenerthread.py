@@ -51,6 +51,9 @@ class CommandListenerThread(PBThread):
             elif words[0].lower() == 'mode':
                 self._proc_mode_msg(speaker, words)
                 continue
+            elif words[0].lower() == 'kick':
+                self._proc_kick_msg(speaker, words)
+                continue
             else:
                 self._out_msg_thread.privmsg(speaker, 'I don\'t understand.')
                 continue
@@ -61,6 +64,16 @@ class CommandListenerThread(PBThread):
         mode_str = ' '.join(words[1:])
         self._operator_action_thread.set_chan_mode(mode_str,
             '{} said so'.format(speaker))
+
+    def _proc_kick_msg(self, speaker, words):
+        assert words[0].lower() == 'kick'
+        assert speaker in self._masters
+        if len(words) != 2:
+            self._log.warn('Don\'t know how to kick "{}". Just give one '
+                    'name'.format(' '.join(words[1:])))
+            return
+        nick = words[1]
+        self._operator_action_thread.kick_nick(nick)
 
     def _shutdown(self):
         log = self._log

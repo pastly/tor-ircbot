@@ -97,6 +97,14 @@ class OperatorActionThread(PBThread):
         self.recv_action(out_msg.servmsg,
             ['/mode {} {}'.format(channel_name, mode_str)])
 
+    def kick_nick(self, nick):
+        log = self._log
+        out_msg = self._out_msg
+        log.info('Kicking {}'.format(nick))
+        channel_name = self._conf['ii']['channel']
+        self.recv_action(out_msg.servmsg,
+                ['/kick {} {}'.format(channel_name, nick)])
+
     def set_opped(self, opped):
         log = self._log
         if opped: self._is_op.set()

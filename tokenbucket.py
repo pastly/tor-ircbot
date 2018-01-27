@@ -6,7 +6,7 @@ from time import time
 #
 # The two arguments to this function are the size of the token bucket (maximum
 # number of tokens it can hold), and the rate at which the bucket refills with
-# tokens.
+# tokens (number of seconds between each additional earned token).
 #
 # Concerning the generated tocket bucket function:
 #

@@ -5,6 +5,7 @@ from threading import Event
 from member import Member, MemberList
 from pbtimer import *
 from pbthread import PBThread
+from tokenbucket import token_bucket
 
 class ChanOpThread(PBThread):
 
@@ -28,6 +29,11 @@ class ChanOpThread(PBThread):
         self._members = MemberList()
         self._is_getting_members = Event()
         self.update_global_state(global_state)
+        self._highlight_spam_token_bucket = token_bucket(
+            int(self._conf['highlight_spam']['long_mention_limit']),
+            float(self._conf['highlight_spam']['long_mention_limit_seconds']) / \
+            float(self._conf['highlight_spam']['long_mention_limit']))
+        self._highlight_spam_token_bucket_state = None
     
     def update_global_state(self, gs):
         self._log = gs['log']
@@ -133,6 +139,11 @@ class ChanOpThread(PBThread):
             else:
                 oat.set_chan_mode('+b {}!*@*'.format(speaker),
                     'mass highlight spam')
+        elif self._is_slow_highlight_spam(words):
+            oat.temporary_mute(enabled=True)
+            log.notice('The channel is being highlight spammed slowly. Kicking',
+                    speaker)
+            oat.kick_nick(speaker)
 
     def _contains_banned_pattern(self, words):
         #words = ' '.join([ w.lower() for w in words ])
@@ -141,17 +152,16 @@ class ChanOpThread(PBThread):
             if bp.search(' '.join(words)): return True
         return False
 
-    def _is_highlight_spam(self, words):
+    def _find_mentioned_nicks(self, words):
         log = self._log
-        limit = int(self._conf['highlight_spam']['mention_limit'])
         mems = self._members
+        matches = set()
         words = [ w.lower() for w in words ]
         words = [ w for w in words if w not in ChanOpThread.common_words ]
         matches = set()
         # first try straight nick mentions with no prefix/suffix obfuscation
         for match in [ w for w in words if mems.contains(w) ]:
             matches.add(match)
-        if len(matches) > limit: return True
         # then try removing leading/trailing punctuation from words and see if
         # they then start to look like nicks. Not all punctuation is illegal
         punc = ''.join(ChanOpThread.non_nick_punctuation)
@@ -159,7 +169,28 @@ class ChanOpThread(PBThread):
             word = word.lstrip(punc).rstrip(punc)
             if mems.contains(word): matches.add(word)
         log.debug("{} nicks mentioned".format(len(matches)))
-        if len(matches) > limit: return True
+        return matches
+
+    def _is_highlight_spam(self, words):
+        log = self._log
+        limit = int(self._conf['highlight_spam']['mention_limit'])
+        mems = self._members
+        words = [ w.lower() for w in words ]
+        words = [ w for w in words if w not in ChanOpThread.common_words ]
+        matches = self._find_mentioned_nicks(words)
+        return len(matches) > limit
+
+    def _is_slow_highlight_spam(self, words):
+        log = self._log
+        tb = self._highlight_spam_token_bucket
+        tb_state = self._highlight_spam_token_bucket_state
+        matches = self._find_mentioned_nicks(words)
+        for match in matches:
+            wait_time, tb_state = tb(tb_state)
+            self._highlight_spam_token_bucket_state = tb_state
+            log.debug(wait_time, tb_state)
+            if wait_time > 0:
+                return True
         return False
 
     def _update_members_event_callback(self):

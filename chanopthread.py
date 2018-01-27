@@ -135,9 +135,10 @@ class ChanOpThread(PBThread):
                     'mass highlight spam')
 
     def _contains_banned_pattern(self, words):
-        words = ' '.join([ w.lower() for w in words ])
+        #words = ' '.join([ w.lower() for w in words ])
         for bp in self._banned_patterns:
-            if bp.search(words): return True
+            #if bp.search(words): return True
+            if bp.search(' '.join(words)): return True
         return False
 
     def _is_highlight_spam(self, words):

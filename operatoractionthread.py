@@ -86,7 +86,7 @@ class OperatorActionThread(PBThread):
             #    self._unmute_timer.cancel()
             #    self._unmute_timer = None
             log.info('Starting an unmute timer')
-            self._unmute_timer = Timer(randint(45,75),
+            self._unmute_timer = Timer(randint(120,300),
                 self.temporary_mute,
                 kwargs={'enabled': False}).start()
         elif not enabled:

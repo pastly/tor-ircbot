@@ -24,7 +24,7 @@ class OperatorActionThread(PBThread):
     def _enter(self):
         log = self._log
         log.notice('Started OperatorActionThread instance')
-        log.debug('OperatorActionThread: Asking to be deopped')
+        log.debug('Asking to be deopped')
         self._out_msg.add(self._out_msg.privmsg,
             ['chanserv', 'deop {} kist'.format(
             self._conf['ii']['channel'])])
@@ -34,7 +34,7 @@ class OperatorActionThread(PBThread):
             if self._is_shutting_down.is_set(): break
             item = None
             count_empty, max_empty = 0, randint(120,180)
-            log.debug('OperatorActionThread: waiting {}s for an action'.format(
+            log.debug('waiting {}s for an action'.format(
                 max_empty))
             while count_empty < max_empty and\
                 not self._is_shutting_down.is_set():
@@ -43,16 +43,16 @@ class OperatorActionThread(PBThread):
                 else: break
             if self._is_shutting_down.is_set(): break
             if not item:
-                log.debug('OperatorActionThread: no item')
+                log.debug('no item')
                 if self._is_op.is_set():
-                    log.debug('OperatorActionThread: Asking to be deopped')
+                    log.debug('Asking to be deopped')
                     self._out_msg.add(self._out_msg.privmsg,
                         ['chanserv', 'deop {} kist'.format(
                         self._conf['ii']['channel'])])
                     sleep(1.0)
                 continue
             args, kwargs = item
-            #log.debug('OperatorActionThread: item: {} {}'.format(args, kwargs))
+            #log.debug('item: {} {}'.format(args, kwargs))
             self._out_msg.add(*args, **kwargs)
         self._shutdown()
 
@@ -63,7 +63,7 @@ class OperatorActionThread(PBThread):
     def recv_action(self, *args, **kwargs):
         if not self._is_op.is_set():
             log = self._log
-            log.debug('OperatorActionThread: Asking to be opped')
+            log.debug('Asking to be opped')
             self._out_msg.add(self._out_msg.privmsg,
                 ['chanserv', 'op {} kist'.format(
                     self._conf['ii']['channel'])])

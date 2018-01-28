@@ -206,7 +206,7 @@ class ChanOpThread(PBThread):
         channel_name = self._conf['ii']['channel']
         log.notice('Clearing members set. Asking for members again.')
         self._is_getting_members.set()
-        out_msg.servmsg('/who {}'.format(channel_name))
+        out_msg.add(out_msg.servmsg, ['/who {}'.format(channel_name)])
 
     def _add_member(self, nick, user=None, host=None):
         log = self._log

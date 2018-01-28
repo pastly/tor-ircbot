@@ -46,7 +46,8 @@ class CommandListenerThread(PBThread):
                     speaker))
                 continue
             if ' '.join(words).lower() == 'ping':
-                self._out_msg_thread.pong(speaker)
+                omt = self._out_msg_thread
+                omt.add(omt.pong, [speaker])
                 continue
             elif words[0].lower() == 'mode':
                 self._proc_mode_msg(speaker, words)

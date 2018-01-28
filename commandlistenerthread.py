@@ -56,7 +56,8 @@ class CommandListenerThread(PBThread):
                 self._proc_kick_msg(speaker, words)
                 continue
             else:
-                self._out_msg_thread.privmsg(speaker, 'I don\'t understand.')
+                omt = self._out_msg_thread
+                omt.add(omt.privmsg, [speaker, 'I don\'t understand'])
                 continue
 
     def _proc_mode_msg(self, speaker, words):

@@ -1,23 +1,9 @@
-# WARNING
-
-`start.sh` needs to be scrubbed from commit history before sharing code.
-
-Also check for pastly's nickserv password (and pastly_bot's while you're at it).
-
-Look for mentions of the string 'pastly' too, why don't you.
-
 # About
 
-This bot requires [`ii`][ii], a suckless tool. Right now it expects ii to be in
-`/usr/local/bin`, sorry. Look for that path in `bot.py` and change if needed :/
+This bot requires [`ii`][ii], a suckless tool.
 
-`bot.py` is a python3 script. It runs two threads: a main thread and a thread
-for watching over `ii`. The `ii` thread starts `ii` and makes sure it is
-restarted in the event of failure not caused by the bot shutting down.
-
-It also starts some subprocesses that `tail` important output files in `ii`'s
-`ircdir`. The main event loop consists of waiting for new lines in these output
-files and handling them as they come in.
+`main.py` is a python3 script. It runs a shit ton of threads. This has made a
+lot of people very angry and been widely regarded as a bad move.
 
 # Logging
 

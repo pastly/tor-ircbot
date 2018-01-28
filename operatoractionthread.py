@@ -61,6 +61,7 @@ class OperatorActionThread(PBThread):
         log.notice('OperatorActionThread going away')
 
     def recv_action(self, *args, **kwargs):
+        ''' Call from other threads. '''
         if not self._is_op.is_set():
             log = self._log
             log.debug('Asking to be opped')
@@ -71,14 +72,14 @@ class OperatorActionThread(PBThread):
         #print(args, kwargs)
 
     def temporary_mute(self, enabled=True):
+        ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
         channel_name = self._conf['ii']['channel']
         if enabled and self._last_mute + 5 < time():
             log.info('Muting channel')
             self._last_mute = time()
-            self.recv_action(out_msg.add, [out_msg.servmsg,
-                    ['/mode {} +RM'.format(channel_name)]])
+            self.set_chan_mode('+RM', 'temporary mute')
             # Doesn't seem to help/work
             #if self._unmute_timer and self._unmute_timer.is_alive():
             #    log.debug('Killing previous unmute timer')
@@ -90,24 +91,24 @@ class OperatorActionThread(PBThread):
                 kwargs={'enabled': False}).start()
         elif not enabled:
             log.info('Unmute timer done. Unmuting')
-            self.recv_action(out_msg.servmsg,
-                ['/mode {} -RM'.format(channel_name)])
+            self.set_chan_mode('-RM', 'end of temporary mute')
 
     def set_chan_mode(self, mode_str, reason):
+        ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
         channel_name = self._conf['ii']['channel']
         log.info('Setting channel mode {} because {}'.format(mode_str, reason))
-        self.recv_action(out_msg.servmsg,
-            ['/mode {} {}'.format(channel_name, mode_str)])
+        self.recv_action(out_msg.add, [out_msg.servmsg,
+            ['/mode {} {}'.format(channel_name, mode_str)]])
 
     def kick_nick(self, nick):
         log = self._log
         out_msg = self._out_msg
         log.info('Kicking {}'.format(nick))
         channel_name = self._conf['ii']['channel']
-        self.recv_action(out_msg.servmsg,
-                ['/kick {} {}'.format(channel_name, nick)])
+        self.recv_action(out_msg.add, [out_msg.servmsg,
+                ['/kick {} {}'.format(channel_name, nick)]])
 
     def set_opped(self, opped):
         log = self._log

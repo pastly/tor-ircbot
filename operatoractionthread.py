@@ -77,8 +77,8 @@ class OperatorActionThread(PBThread):
         if enabled and self._last_mute + 5 < time():
             log.info('Muting channel')
             self._last_mute = time()
-            self.recv_action(out_msg.servmsg,
-                ['/mode {} +RM'.format(channel_name)])
+            self.recv_action(out_msg.add, [out_msg.servmsg,
+                    ['/mode {} +RM'.format(channel_name)]])
             # Doesn't seem to help/work
             #if self._unmute_timer and self._unmute_timer.is_alive():
             #    log.debug('Killing previous unmute timer')

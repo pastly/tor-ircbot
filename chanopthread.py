@@ -7,6 +7,7 @@ from pbtimer import *
 from pbthread import PBThread
 from tokenbucket import token_bucket
 
+
 class ChanOpThread(PBThread):
 
     non_nick_punctuation = [':',',','!','?']
@@ -23,21 +24,25 @@ class ChanOpThread(PBThread):
     'how','our','work','first','well','way','even','new','want','because','any',
     'these','give','day','most','us']
 
-    def __init__(self, global_state):
-        PBThread.__init__(self, self._enter, name='ChanOp')
+    def __init__(self, global_state, channel_name):
+        PBThread.__init__(self, self._enter,
+                          name='ChanOp-{}'.format(channel_name))
         self._message_queue = Queue(100)
         self._members = MemberList()
         self._is_getting_members = Event()
+        self._channel_name = channel_name
         self.update_global_state(global_state)
         self._highlight_spam_token_bucket = token_bucket(
             int(self._conf['highlight_spam']['long_mention_limit']),
             float(self._conf['highlight_spam']['long_mention_limit_seconds']) / \
             float(self._conf['highlight_spam']['long_mention_limit']))
         self._highlight_spam_token_bucket_state = None
-    
+
     def update_global_state(self, gs):
         self._log = gs['log']
-        self._operator_action_thread = gs['threads']['op_action']
+        assert self._channel_name in gs['threads']['op_actions']
+        t = gs['threads']['op_actions'][self._channel_name]
+        self._operator_action_thread = t
         self._out_msg_thread = gs['threads']['out_message']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
@@ -56,7 +61,6 @@ class ChanOpThread(PBThread):
         self._update_members_event = RepeatedTimer(
             60*60*8,
             self._update_members_event_callback)
-        channel_name = self._conf['ii']['channel']
         while not self._is_shutting_down.is_set():
             type, line = "", ""
             try: type, line = self._message_queue.get(timeout=1)
@@ -70,7 +74,7 @@ class ChanOpThread(PBThread):
             words = tokens[3:]
             if speaker == '-!-':
                 self._proc_ctrl_msg(speaker, words)
-            elif speaker == channel_name:
+            elif speaker == self._channel_name:
                 if ' '.join(words) == 'End of /WHO list.':
                     self._is_getting_members.clear()
                 elif self._is_getting_members.is_set():
@@ -84,10 +88,11 @@ class ChanOpThread(PBThread):
 
     def _proc_ctrl_msg(self, speaker, words):
         assert speaker == '-!-'
-        channel_name = self._conf['ii']['channel']
         log = self._log
         oat = self._operator_action_thread
-        if ' '.join(words[1:3]) == 'changed mode/{}'.format(channel_name):
+        channel_name = self._channel_name
+        if ' '.join(words[1:3]) == \
+                'changed mode/{}'.format(channel_name):
             who = words[0]
             mode = words[4]
             arg = words[5] if len(words) >= 6 else None
@@ -197,15 +202,13 @@ class ChanOpThread(PBThread):
 
     def _update_members_event_callback(self):
         self._members = MemberList()
-        log = self._log
         out_msg = self._out_msg_thread
-        channel_name = self._conf['ii']['channel']
         out_msg.add(self._ask_for_new_members)
 
     def _ask_for_new_members(self):
         log = self._log
         out_msg = self._out_msg_thread
-        channel_name = self._conf['ii']['channel']
+        channel_name = self._channel_name
         log.notice('Clearing members set. Asking for members again.')
         self._is_getting_members.set()
         out_msg.add(out_msg.servmsg, ['/who {}'.format(channel_name)])
@@ -214,7 +217,7 @@ class ChanOpThread(PBThread):
         log = self._log
         old_len = len(self._members)
         self._members.add(nick, user, host)
-        log.debug('Added {} ({})'.format(Member(nick,user,host),
+        log.info('Added {} ({})'.format(Member(nick,user,host),
             len(self._members)))
         if len(self._members) <= old_len:
             log.warn('Adding {} to members didn\'t inc length'.format(nick))

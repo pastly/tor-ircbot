@@ -1,18 +1,19 @@
-import time
 from queue import Empty, Queue
 from random import randint
 from time import sleep, time
 from threading import Event, Timer
 from pbthread import PBThread
-from outboundmessagethread import OutboundMessageThread
+
 
 class OperatorActionThread(PBThread):
-    def __init__(self, global_state):
-        PBThread.__init__(self, self._enter, name='OperatorAction')
+    def __init__(self, global_state, channel_name):
+        PBThread.__init__(self, self._enter,
+                          name='OperatorAction-{}'.format(channel_name))
         self._is_op = Event()
         self._waiting_actions = Queue(100)
         self._unmute_timer = None
         self._last_mute = 0.1
+        self._channel_name = channel_name
         self.update_global_state(global_state)
 
     def update_global_state(self, gs):
@@ -25,9 +26,9 @@ class OperatorActionThread(PBThread):
         log = self._log
         log.notice('Started OperatorActionThread instance')
         log.debug('Asking to be deopped')
+        channel_name = self._channel_name
         self._out_msg.add(self._out_msg.privmsg,
-            ['chanserv', 'deop {} kist'.format(
-            self._conf['ii']['channel'])])
+            ['chanserv', 'deop {} kist'.format(channel_name)])
         while not self._is_shutting_down.is_set():
             while not (self._is_op.wait(1) or self._is_shutting_down.is_set()):
                 pass
@@ -47,8 +48,7 @@ class OperatorActionThread(PBThread):
                 if self._is_op.is_set():
                     log.debug('Asking to be deopped')
                     self._out_msg.add(self._out_msg.privmsg,
-                        ['chanserv', 'deop {} kist'.format(
-                        self._conf['ii']['channel'])])
+                        ['chanserv', 'deop {} kist'.format(channel_name)])
                     sleep(1.0)
                 continue
             args, kwargs = item
@@ -64,10 +64,9 @@ class OperatorActionThread(PBThread):
         ''' Call from other threads. '''
         if not self._is_op.is_set():
             log = self._log
-            log.debug('Asking to be opped')
+            log.debug('Asking to be opped in channel', self._channel_name)
             self._out_msg.add(self._out_msg.privmsg,
-                ['chanserv', 'op {} kist'.format(
-                    self._conf['ii']['channel'])])
+                ['chanserv', 'op {} kist'.format(self._channel_name)])
         self._waiting_actions.put( (args, kwargs) )
         #print(args, kwargs)
 
@@ -75,7 +74,6 @@ class OperatorActionThread(PBThread):
         ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
-        channel_name = self._conf['ii']['channel']
         if enabled and self._last_mute + 5 < time():
             log.info('Muting channel')
             self._last_mute = time()
@@ -97,18 +95,17 @@ class OperatorActionThread(PBThread):
         ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
-        channel_name = self._conf['ii']['channel']
-        log.info('Setting channel mode {} because {}'.format(mode_str, reason))
+        log.info('Setting channel mode {} on {} because {}'.format(mode_str,
+                 self._channel_name, reason))
         self.recv_action(out_msg.add, [out_msg.servmsg,
-            ['/mode {} {}'.format(channel_name, mode_str)]])
+            ['/mode {} {}'.format(self._channel_name, mode_str)]])
 
     def kick_nick(self, nick):
         log = self._log
         out_msg = self._out_msg
-        log.info('Kicking {}'.format(nick))
-        channel_name = self._conf['ii']['channel']
+        log.info('Kicking {} from {}'.format(nick, self._channel_name))
         self.recv_action(out_msg.add, [out_msg.servmsg,
-                ['/kick {} {}'.format(channel_name, nick)]])
+                ['/kick {} {}'.format(self._channel_name, nick)]])
 
     def set_opped(self, opped):
         log = self._log

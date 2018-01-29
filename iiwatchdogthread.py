@@ -1,5 +1,6 @@
 import os
 import subprocess
+import json
 from pbthread import PBThread
 
 class IIWatchdogThread(PBThread):
@@ -43,9 +44,10 @@ class IIWatchdogThread(PBThread):
 
     def _prepare_ircdir(self):
         conf = self._conf
-        server_dir = os.path.join(conf['ii']['ircdir'],conf['ii']['server'])
-        channel_name = conf['ii']['channel']
-        os.makedirs(os.path.join(server_dir,channel_name), exist_ok=True)
+        server_dir = os.path.join(conf['ii']['ircdir'], conf['ii']['server'])
+        channel_names = json.loads(conf['ii']['channels'])
+        for channel_name in channel_names:
+            os.makedirs(os.path.join(server_dir, channel_name), exist_ok=True)
 
     def update_global_state(self, gs):
         self._log = gs['log']

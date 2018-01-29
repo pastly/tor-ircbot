@@ -151,6 +151,13 @@ class ChanOpThread(PBThread):
             log.notice('The channel is being highlight spammed slowly. Kicking',
                     speaker)
             oat.kick_nick(speaker)
+            if self._members.contains(speaker):
+                mem = self._members[speaker]
+                oat.set_chan_mode('+bb {}!*@* *!*@{}'.format(mem.nick,
+                    mem.host), '(automatic action)')
+            else:
+                oat.set_chan_mode('+b {}!*@*'.format(speaker),
+                    '(automatic action)')
 
     def _contains_banned_pattern(self, words):
         #words = ' '.join([ w.lower() for w in words ])

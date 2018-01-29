@@ -1,12 +1,11 @@
 from pbthread import PBThread
 import subprocess
-import time
-from random import random
+
 
 class WatchFileThread(PBThread):
     def __init__(self, fname, type, global_state, *args, **kwargs):
         PBThread.__init__(self, self._enter, *args,
-            name='WatchFile-{}'.format(type), **kwargs)
+                          name='WatchFile-{}'.format(type), **kwargs)
         self._fname = fname
         self._type = type
         self.update_global_state(global_state)
@@ -15,20 +14,21 @@ class WatchFileThread(PBThread):
         log = self._log
         log.notice('Started WatchFileThread {} {} instance'.format(
             self._type, self._fname))
-        sub = subprocess.Popen(['tail','-F','-n','0',self._fname],
-            stdout=subprocess.PIPE,
-            bufsize=1)
+        sub = subprocess.Popen(['tail', '-F', '-n', '0', self._fname],
+                               stdout=subprocess.PIPE,
+                               bufsize=1)
         while not self._is_shutting_down.is_set():
             line_ = sub.stdout.readline()
             try:
                 line = line_.decode('utf8')
                 line = line[:-1]
-                if not len(line): continue
+                if not len(line):
+                    continue
                 if self._chanop_thread:
                     self._chanop_thread.recv_line(self._type, line)
                 if self._command_thread:
                     self._command_thread.recv_line(self._type, line)
-                #if len(line): log.debug("[{}] {}".format(self._type, line))
+                # if len(line): log.debug("[{}] {}".format(self._type, line))
             except UnicodeDecodeError:
                 log.warn('Can\'t decode line, so ignoring: {}'.format(line_))
                 continue
@@ -37,8 +37,9 @@ class WatchFileThread(PBThread):
 
     def _shutdown(self):
         log = self._log
-        if log: log.notice('WatchFileThread {} {} going away'.format(
-            self._type, self._fname))
+        if log:
+            log.notice('WatchFileThread {} {} going away'.format(
+                       self._type, self._fname))
         return
 
     def update_global_state(self, gs):

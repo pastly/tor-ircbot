@@ -1,6 +1,8 @@
 from pbthread import PBThread
 from queue import Empty, Queue
 import json
+
+
 class CommandListenerThread(PBThread):
     def __init__(self, global_state):
         PBThread.__init__(self, self._enter, name='CommandListener')
@@ -15,8 +17,9 @@ class CommandListenerThread(PBThread):
         self._is_shutting_down = gs['events']['is_shutting_down']
         if 'masters' not in self._conf['general']:
             self._log.warn('No masters are configured so the '
-                'CommandListenerThread will likely be useless and you won\'t '
-                'be able to control the bot via IRC private messages.')
+                           'CommandListenerThread will likely be useless and '
+                           'you won\'t be able to control the bot via IRC '
+                           'private messages.')
             self._masters = []
         else:
             self._masters = json.loads(self._conf['general']['masters'])
@@ -30,12 +33,15 @@ class CommandListenerThread(PBThread):
         log.notice('Started CommandListenerThread instance')
         while not self._is_shutting_down.is_set():
             type, line = "", ""
-            try: type, line = self._message_queue.get(timeout=1)
+            try:
+                type, line = self._message_queue.get(timeout=1)
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
-            if not len(line): continue
-            if type != 'priv': continue 
+            if not len(line):
+                continue
+            if type != 'priv':
+                continue
             tokens = line.split()
             # the speaker is token at index 2, then remove leading '<', then
             # remove trailing '>'
@@ -64,15 +70,15 @@ class CommandListenerThread(PBThread):
         assert words[0].lower() == 'mode'
         assert speaker in self._masters
         mode_str = ' '.join(words[1:])
-        self._operator_action_thread.set_chan_mode(mode_str,
-            '{} said so'.format(speaker))
+        oat = self._operator_action_thread
+        oat.set_chan_mode(mode_str, '{} said so'.format(speaker))
 
     def _proc_kick_msg(self, speaker, words):
         assert words[0].lower() == 'kick'
         assert speaker in self._masters
         if len(words) != 2:
             self._log.warn('Don\'t know how to kick "{}". Just give one '
-                    'name'.format(' '.join(words[1:])))
+                           'name'.format(' '.join(words[1:])))
             return
         nick = words[1]
         self._operator_action_thread.kick_nick(nick)
@@ -82,4 +88,4 @@ class CommandListenerThread(PBThread):
         log.notice('CommandListenerThread going away')
 
     def recv_line(self, type, line):
-        self._message_queue.put( (type, line) )
+        self._message_queue.put((type, line))

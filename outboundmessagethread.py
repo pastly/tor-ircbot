@@ -3,6 +3,7 @@ import random
 from pbthread import PBThread
 from actionqueue import ActionQueue
 
+
 class OutboundMessageThread(PBThread):
     ''' If the bot is going to send a message/command to the IRC server, it
     must do so through this class.
@@ -17,14 +18,15 @@ class OutboundMessageThread(PBThread):
     to add(), any arguments you want to pass to it in as a list, and finally
     any keyword arguments you want to pass to it as a dictionary.
     '''
-    pong_msgs = [ 'pong', 'PONG', 'POOOONG!!!!', 'JFC pong', 'No. Just stop.',
-        'WTF do you want from me?', 'I\'m busy', 'moo', 'ACK', 'RST',
-    ]
+    pong_msgs = ['pong', 'PONG', 'POOOONG!!!!', 'JFC pong', 'No. Just stop.',
+                 'WTF do you want from me?', 'I\'m busy', 'moo', 'ACK', 'RST']
+
     def __init__(self, global_state,
-        long_timeout=5, time_between_actions_func=None):
+                 long_timeout=5, time_between_actions_func=None):
         PBThread.__init__(self, self._enter, name='OutboundMessage')
-        self._action_queue = ActionQueue(long_timeout=long_timeout,
-            time_between_actions_func=time_between_actions_func)
+        self._action_queue = \
+            ActionQueue(long_timeout=long_timeout,
+                        time_between_actions_func=time_between_actions_func)
         self.update_global_state(global_state)
 
     def update_global_state(self, gs):
@@ -50,7 +52,7 @@ class OutboundMessageThread(PBThread):
         self._action_queue.add(*args, **kwargs)
 
     def servmsg(self, message):
-        ''' Do not call this function directly. Pass it as an argument to add().
+        ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.servmsg, ['/mode #foo +i'])
@@ -60,7 +62,7 @@ class OutboundMessageThread(PBThread):
             server_in.write('{}\n'.format(message))
 
     def privmsg(self, nick, message):
-        ''' Do not call this function directly. Pass it as an argument to add().
+        ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.privmsg, ['pastly', 'You left the stove on'])
@@ -68,7 +70,7 @@ class OutboundMessageThread(PBThread):
         self.servmsg('/privmsg {} {}'.format(nick, message))
 
     def pong(self, nick):
-        ''' Do not call this function directly. Pass it as an argument to add().
+        ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.pong, ['pastly'])

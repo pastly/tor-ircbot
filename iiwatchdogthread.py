@@ -12,10 +12,10 @@ class IIWatchdogThread(PBThread):
         log = self._log
         conf = self._conf
         ii_bin = conf['ii']['path']
-        nick = conf['ii']['nick']
+        nick = conf['ii']['server_username']
         server = conf['ii']['server']
         port = conf['ii']['port']
-        server_pass = conf['ii']['server_pass']
+        server_pass = conf['ii']['server_password']
         ircdir = conf['ii']['ircdir']
         while True:
             self._prepare_ircdir()

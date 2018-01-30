@@ -3,8 +3,8 @@ path = /usr/local/bin/ii
 ircdir = ircdir
 server = localhost
 port = 6667
-server_pass = soopersekretstring
-nick = didnteditconf
+server_username = didnteditconf
+server_password = soopersekretstring
 channel = #didnteditconf
 
 [general]

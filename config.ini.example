@@ -5,11 +5,21 @@ server = localhost
 port = 6667
 server_username = didnteditconf
 server_password = soopersekretstring
-channel = #didnteditconf
+channels = [ "#didnteditconf" ]
 
 [general]
 update_members_interval = 28800
+masters = [ "changetoyournickname"
+    ]
 
 [highlight_spam]
 enabled = yes
-mention_limit = 20
+# max mentions in one message
+mention_limit = 10
+# max mentions by anybody in the last <long_mention_limit_seconds>
+long_mention_limit = 10
+long_mention_limit_seconds = 30
+
+[banned_patterns]
+enabled = yes
+pats = [ ]

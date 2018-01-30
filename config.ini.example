@@ -22,4 +22,8 @@ long_mention_limit_seconds = 30
 
 [banned_patterns]
 enabled = yes
+# if you want to escape a char with a \ then you must also escape the \ itself
+# so a literal '.' would have to be written '\\.'
+#
+# these are case SENSITIVE
 pats = [ ]

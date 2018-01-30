@@ -125,6 +125,15 @@ class ChanOpThread(PBThread):
                 self._members.remove(nick)
                 log.info('Removed (quit) {} ({})'.format(nick,
                                                          len(self._members)))
+        elif ' '.join(words[1:4]) == 'changed nick to':
+            from_nick = words[0]
+            to_nick = words[4]
+            log.info(from_nick, 'changing to', to_nick)
+            if not self._members.contains(from_nick):
+                log.warn('Do not have a member with nick', from_nick)
+            else:
+                mem = self._members[from_nick]
+                mem.set(nick=to_nick)
         else:
             log.debug('Ignoring ctrl msg:', ' '.join(words))
 

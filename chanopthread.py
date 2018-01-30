@@ -182,16 +182,13 @@ class ChanOpThread(PBThread):
         for word in words:
             word = word.lstrip(punc).rstrip(punc)
             if mems.contains(word): matches.add(word)
-        log.debug("{} nicks mentioned".format(len(matches)))
         return matches
 
     def _is_highlight_spam(self, words):
         log = self._log
         limit = int(self._conf['highlight_spam']['mention_limit'])
-        mems = self._members
-        words = [ w.lower() for w in words ]
-        words = [ w for w in words if w not in ChanOpThread.common_words ]
         matches = self._find_mentioned_nicks(words)
+        log.debug("{} nicks mentioned".format(len(matches)))
         return len(matches) > limit
 
     def _is_slow_highlight_spam(self, words):

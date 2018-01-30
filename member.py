@@ -1,4 +1,6 @@
 from time import time
+
+
 class Member:
     def __init__(self, nick, user=None, host=None):
         self.nick = nick
@@ -9,9 +11,12 @@ class Member:
         return '{}!{}@{}'.format(self.nick, self.user, self.host)
 
     def set(self, nick=None, user=None, host=None):
-        if nick: self._set_nick(nick)
-        if user: self._set_user(user)
-        if host: self._set_host(host)
+        if nick:
+            self._set_nick(nick)
+        if user:
+            self._set_user(user)
+        if host:
+            self._set_host(host)
 
     def _set_nick(self, nick):
         self.nick = nick
@@ -21,6 +26,7 @@ class Member:
 
     def _set_host(self, host):
         self.host = host
+
 
 class MemberList:
     def __init__(self, recent_until=10.00):
@@ -38,7 +44,7 @@ class MemberList:
         if not self.contains(nick=nick):
             m = Member(nick, user, host)
             self._members.add(m)
-            self._recent.append( (time(), m) )
+            self._recent.append((time(), m))
         else:
             member = self.__getitem__(nick)
             member.set(user=user, host=host)
@@ -46,22 +52,26 @@ class MemberList:
 
     def remove(self, nick):
         member = self.__getitem__(nick)
-        if not member: return
+        if not member:
+            return
         self._members.discard(member)
-        self._recent = [ (at, m) for at, m in self._recent if m.nick != nick ]
+        self._recent = [(at, m) for at, m in self._recent if m.nick != nick]
         self._trim_recent()
 
     def discard(self, nick):
         return self.remove(nick)
 
     def contains(self, nick=None, user=None, host=None):
-        assert nick != None or user != None or host != None
+        assert nick is not None or user is not None or host is not None
 
         match_nick, match_user, match_host = False, False, False
 
-        if nick: match_nick = self._contains_nick(nick)
-        if user: match_user = self._contains_user(user)
-        if host: match_host = self._contains_host(host)
+        if nick:
+            match_nick = self._contains_nick(nick)
+        if user:
+            match_user = self._contains_user(user)
+        if host:
+            match_host = self._contains_host(host)
 
         if nick and not user and not host:
             return True if match_nick else False
@@ -89,34 +99,39 @@ class MemberList:
     def _contains_user(self, user):
         user = user.lower()
         for m in self:
-            if m.user.lower() == user: return m
+            if m.user.lower() == user:
+                return m
         return False
 
     def _contains_host(self, host):
         host = host.lower()
         for m in self:
-            if m.host.lower() == host: return m
+            if m.host.lower() == host:
+                return m
         return False
 
     def __getitem__(self, nick):
         nick = nick.lower()
         for m in self:
-            if m.nick.lower() == nick: return m
+            if m.nick.lower() == nick:
+                return m
         return None
 
     def matches(self, user=None, host=None):
-        assert user != None or host != None
+        assert user is not None or host is not None
         matching_users = []
         matching_hosts = []
-        if user: user = user.lower()
-        if host: host = host.lower()
+        if user:
+            user = user.lower()
+        if host:
+            host = host.lower()
         for m in self:
             if user and m.user.lower() == user:
                 matching_users.append(m)
             if host and m.host.lower() == host:
                 matching_hosts.append(m)
         if user and host:
-            return matching_users, match_hosts
+            return matching_users, matching_hosts
         if user:
             return matching_users
         return matching_hosts
@@ -126,11 +141,12 @@ class MemberList:
         now = time()
         for at, m in self._recent:
             if at + self._recent_until >= now:
-                new_recent.append( (at, m) )
+                new_recent.append((at, m))
         self._recent = new_recent
 
     def get_joined_since(self, t):
         members = set()
         for at, m in self._recent:
-            if at >= t: members.add(m)
+            if at >= t:
+                members.add(m)
         return members

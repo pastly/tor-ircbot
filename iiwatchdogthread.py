@@ -3,6 +3,7 @@ import subprocess
 import json
 from pbthread import PBThread
 
+
 class IIWatchdogThread(PBThread):
     def __init__(self, global_state):
         PBThread.__init__(self, self._enter, name='IIWatchdog')
@@ -21,22 +22,23 @@ class IIWatchdogThread(PBThread):
             self._prepare_ircdir()
             log.notice('(Re)Starting ii process')
             ii = subprocess.Popen(
-                [ii_bin,'-i',ircdir,'-s',server,'-p',port,'-n',nick,'-k','PASS'],
+                '{} -i {} -s {} -p {} -n {} -k PASS'
+                .format(ii_bin, ircdir, server, port, nick).split(' '),
                 env={'PASS': server_pass},
             )
             while not self._is_shutting_down.wait(10):
                 # if we aren't shutting down and we have a return code,
                 # then we need to restart the process. First exit this loop
-                if ii.poll() != None:
+                if ii.poll() is not None:
                     log.debug('ii process went away')
                     break
             # if we have a return code from the ii sub process, we just
             # exited the above loop and should restart this loop and thus
             # restart the ii process.
-            if ii.poll() != None:
+            if ii.poll() is not None:
                 continue
-            # if we get to here, then we are shutting down and should just throw
-            # it all away.
+            # if we get to here, then we are shutting down and should just
+            # throw it all away.
             if self._is_shutting_down.wait(2):
                 log.notice('Stopping ii process for good')
                 ii.terminate()

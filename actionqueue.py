@@ -1,6 +1,7 @@
-import signal
 from time import time
 from queue import Empty, PriorityQueue, Queue
+
+
 class ActionQueue:
     ''' A priority queue of functions to call in a controlling thread's main
     loop.
@@ -61,8 +62,9 @@ class ActionQueue:
     #   priority defaults to time, that does NOT mean setting
     #   priority == time()+5 means the item will be processed after 5 seconds.
     def add(self, func, args=None, kwargs=None, priority=None):
-        if priority == None: priority = time()
-        self._incoming_queue.put( (priority, (func, args, kwargs)) )
+        if priority is None:
+            priority = time()
+        self._incoming_queue.put((priority, (func, args, kwargs)))
 
     # A very simple time_between_actions_func that instructs the ActionQueue
     # to not wait at all between actions. All time_between_actions_func's must
@@ -72,9 +74,11 @@ class ActionQueue:
         return 0, None
 
     def __process_incoming_queue(self, timeout):
-        try: item = self._incoming_queue.get(timeout=timeout)
-        except Empty: item = None
-        if item != None:
+        try:
+            item = self._incoming_queue.get(timeout=timeout)
+        except Empty:
+            item = None
+        if item is not None:
             self._action_queue.put(item)
 
     def loop_once(self):
@@ -83,16 +87,22 @@ class ActionQueue:
         # first make sure enough time has passed since our last action
         if time() >= self._next_action:
             # get an action out of the priority queue
-            try: item = self._action_queue.get_nowait()
-            except Empty: item = None
+            try:
+                item = self._action_queue.get_nowait()
+            except Empty:
+                item = None
             # if we got one, then handle it
-            if item != None:
+            if item is not None:
                 # item comes in as (priority, (func, args=[], kwargs={}) )
                 func, args, kwargs = item[1]
-                if args == None and kwargs == None: func()
-                elif args and kwargs == None: func(*args)
-                elif kwargs and args == None: func(**kwargs)
-                else: func(*args, **kwargs)
+                if args is None and kwargs is None:
+                    func()
+                elif args and kwargs is None:
+                    func(*args)
+                elif kwargs and args is None:
+                    func(**kwargs)
+                else:
+                    func(*args, **kwargs)
                 # now run the _time_between_actions_func to determine how long
                 # we must wait before processing another event
                 old_state = self._time_between_actions_func_state
@@ -113,5 +123,6 @@ class ActionQueue:
         # afford to wait for the remaining time until we should perform it
         else:
             timeout = self._next_action - time()
-            if timeout < 0: timeout=0
+            if timeout < 0:
+                timeout = 0
             self.__process_incoming_queue(timeout=timeout)

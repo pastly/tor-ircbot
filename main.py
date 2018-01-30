@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # python stuff
 import os
-import signal
 import time
 import json
 from configparser import ConfigParser
 from threading import Event
 # my stuff
-from signalstuff import *
+import signalstuff as ss
 from tokenbucket import token_bucket
 from watchfilethread import WatchFileThread
 from chanopthread import ChanOpThread
@@ -56,15 +55,17 @@ def main():
         gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
     channel_names = json.loads(gs['conf']['ii']['channels'])
 
-    gs['threads']['out_message'] = OutboundMessageThread(gs, long_timeout=5,
-        time_between_actions_func=token_bucket(5, 0.505))
+    gs['threads']['out_message'] = \
+        OutboundMessageThread(gs, long_timeout=5,
+                              time_between_actions_func=token_bucket(5, 0.505))
 
     for channel_name in channel_names:
         gs['threads']['op_actions'][channel_name] = \
             OperatorActionThread(gs, channel_name)
 
     for channel_name in channel_names:
-        gs['threads']['chan_ops'][channel_name] = ChanOpThread(gs, channel_name)
+        gs['threads']['chan_ops'][channel_name] = \
+            ChanOpThread(gs, channel_name)
 
     gs['threads']['command_listener'] = CommandListenerThread(gs)
 
@@ -91,11 +92,13 @@ def main():
 
     # must add current signals to the beginning of the stack as we need to keep
     # track of what the default signals are
-    gs['signal_stack'] = add_current_signals_to_stack([])
-    gs['signal_stack'] = set_signals(gs['signal_stack'], sigint, sigterm, sighup)
+    gs['signal_stack'] = ss.add_current_signals_to_stack([])
+    gs['signal_stack'] = ss.set_signals(gs['signal_stack'],
+                                        sigint, sigterm, sighup)
 
     while True:
         time.sleep(10.0)
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     main()

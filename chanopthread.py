@@ -97,8 +97,7 @@ class ChanOpThread(PBThread):
         log = self._log
         oat = self._operator_action_thread
         channel_name = self._channel_name
-        if ' '.join(words[1:3]) == \
-                'changed mode/{}'.format(channel_name):
+        if ' '.join(words[1:3]) == 'changed mode/{}'.format(channel_name):
             # who = words[0]
             mode = words[4]
             arg = words[5] if len(words) >= 6 else None

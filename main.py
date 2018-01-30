@@ -55,7 +55,6 @@ def main():
     server_dir = os.path.join(
         gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
     channel_names = json.loads(gs['conf']['ii']['channels'])
-    print(channel_names)
 
     gs['threads']['out_message'] = OutboundMessageThread(gs, long_timeout=5,
         time_between_actions_func=token_bucket(5, 0.505))

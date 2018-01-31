@@ -139,7 +139,8 @@ class ChanOpThread(PBThread):
                 self._members.remove(nick)
                 log.info('Removed (quit) {} ({})'.format(
                     nick, len(self._members)))
-            self._message_flood_token_bucket_states.pop(nick)
+            if nick in self._message_flood_token_bucket_states:
+                self._message_flood_token_bucket_states.pop(nick)
         elif ' '.join(words[1:4]) == 'changed nick to':
             from_nick = words[0]
             to_nick = words[4]

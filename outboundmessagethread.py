@@ -69,6 +69,14 @@ class OutboundMessageThread(PBThread):
         '''
         self.servmsg('/privmsg {} {}'.format(nick, message))
 
+    def notice(self, target, message):
+        ''' Do not call this function directly. Pass it as an argument to add()
+
+        >>> omt = outbound_message_thread
+        >>> omt.add(omt.notice, ['#foobar', 'Promise this isnt spam'])
+        '''
+        self.servmsg('/notice {} {}'.format(target, message))
+
     def pong(self, nick):
         ''' Do not call this function directly. Pass it as an argument to add()
 

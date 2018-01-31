@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from queue import Empty, Queue
 from threading import Event
 from member import Member, MemberList
@@ -34,11 +35,24 @@ class ChanOpThread(PBThread):
         self._is_getting_members = Event()
         self._channel_name = channel_name
         self.update_global_state(global_state)
+        if 'masters' not in self._conf['general']:
+            self._masters = []
+        else:
+            self._masters = json.loads(self._conf['general']['masters'])
         self._highlight_spam_token_bucket = token_bucket(
             int(self._conf['highlight_spam']['long_mention_limit']),
             float(self._conf['highlight_spam']['long_mention_limit_seconds']) /
             float(self._conf['highlight_spam']['long_mention_limit']))
         self._highlight_spam_token_bucket_state = None
+        self._message_flood_token_bucket_func = token_bucket(
+            int(self._conf['flood']['message_limit']),
+            float(self._conf['flood']['message_limit_seconds']) /
+            float(self._conf['flood']['message_limit']))
+        self._message_flood_burst_token_bucket_func = token_bucket(
+            int(self._conf['flood']['burst_message_limit']),
+            float(self._conf['flood']['burst_message_limit_seconds']) /
+            float(self._conf['flood']['burst_message_limit']))
+        self._message_flood_token_bucket_states = {}
 
     def update_global_state(self, gs):
         self._log = gs['log']
@@ -123,8 +137,9 @@ class ChanOpThread(PBThread):
             nick = s.split('(')[0]
             if self._members.contains(nick):
                 self._members.remove(nick)
-                log.info('Removed (quit) {} ({})'.format(nick,
-                                                         len(self._members)))
+                log.info('Removed (quit) {} ({})'.format(
+                    nick, len(self._members)))
+            self._message_flood_token_bucket_states.pop(nick)
         elif ' '.join(words[1:4]) == 'changed nick to':
             from_nick = words[0]
             to_nick = words[4]
@@ -134,6 +149,10 @@ class ChanOpThread(PBThread):
             else:
                 mem = self._members[from_nick]
                 mem.set(nick=to_nick)
+            if from_nick in self._message_flood_token_bucket_states:
+                self._message_flood_token_bucket_states[to_nick] = \
+                    self._message_flood_token_bucket_states[from_nick]
+                self._message_flood_token_bucket_states.pop(from_nick)
         else:
             log.debug('Ignoring ctrl msg:', ' '.join(words))
 
@@ -174,10 +193,14 @@ class ChanOpThread(PBThread):
                 mem = self._members[speaker]
                 oat.set_chan_mode('+bb {}!*@* *!*@{}'
                                   .format(mem.nick, mem.host),
-                                  '(automatic action)')
+                                  'slow highlight spam')
             else:
                 oat.set_chan_mode('+b {}!*@*'.format(speaker),
-                                  '(automatic action)')
+                                  'slow highlight spam')
+        elif self._is_speaker_flooding(speaker):
+            log.notice(speaker, 'has said too much recently. Kicking.')
+            oat.kick_nick(speaker)
+            oat.set_chan_mode('+R', 'flooding')
 
     def _contains_banned_pattern(self, words):
         # words = ' '.join([ w.lower() for w in words ])
@@ -213,17 +236,48 @@ class ChanOpThread(PBThread):
         return len(matches) > limit
 
     def _is_slow_highlight_spam(self, words):
-        log = self._log
         tb = self._highlight_spam_token_bucket
         tb_state = self._highlight_spam_token_bucket_state
         matches = self._find_mentioned_nicks(words)
         for match in matches:
             wait_time, tb_state = tb(tb_state)
             self._highlight_spam_token_bucket_state = tb_state
-            log.debug(wait_time, tb_state)
             if wait_time > 0:
                 return True
         return False
+
+    def _is_speaker_flooding(self, speaker):
+        if speaker in self._masters:
+            return False
+        log = self._log
+        tb_flood_func = self._message_flood_token_bucket_func
+        tb_flood_burst_func = self._message_flood_burst_token_bucket_func
+        tb_states = self._message_flood_token_bucket_states
+        if speaker not in tb_states:
+            tb_states[speaker] = {
+                'last_message': 0,
+                'flood_state': None,
+                'flood_burst_state': None,
+            }
+        now = time.time()
+        # there's code to support having a burst token bucket and a regular
+        # token bucet, but for now just use the regular token bucket. Trust
+        # that OFTC and Floodserv will handle bursts of messages.
+        # if now - tb_states[speaker]['last_message'] > 1:
+        #     wait_time, new_state = tb_flood_func(
+        #         tb_states[speaker]['flood_state'])
+        #     tb_states[speaker]['flood_state'] = new_state
+        #     log.debug('REGLR', wait_time, new_state)
+        # else:
+        #     wait_time, new_state = tb_flood_burst_func(
+        #         tb_states[speaker]['flood_burst_state'])
+        #     tb_states[speaker]['flood_burst_state'] = new_state
+        #     log.debug('BURST', wait_time, new_state)
+        wait_time, new_state = tb_flood_func(tb_states[speaker]['flood_state'])
+        tb_states[speaker]['flood_state'] = new_state
+        tb_states[speaker]['last_message'] = now
+        log.debug('Flood TB: wait={} state={}'.format(wait_time, new_state))
+        return wait_time > 0
 
     def _update_members_event_callback(self):
         self._members = MemberList()

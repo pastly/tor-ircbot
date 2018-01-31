@@ -43,6 +43,7 @@ class CommandListenerThread(PBThread):
                 continue
             if type != 'priv':
                 continue
+            omt = self._out_msg_thread
             tokens = line.split()
             # the speaker is token at index 2, then remove leading '<', then
             # remove trailing '>'
@@ -53,14 +54,12 @@ class CommandListenerThread(PBThread):
                     speaker))
                 continue
             if ' '.join(words).lower() == 'ping':
-                omt = self._out_msg_thread
                 omt.add(omt.pong, [speaker])
                 continue
             elif words[0].lower() == 'mode':
                 # expecting 'mode #channel +Rb foobar!*@*' or similar
                 # so must be at least 3 words
                 if len(words) < 3:
-                    omt = self._out_msg_thread
                     omt.add(omt.privmsg, [speaker, 'bad MODE command'])
                     continue
                 self._proc_mode_msg(speaker, words)
@@ -69,12 +68,10 @@ class CommandListenerThread(PBThread):
                 # expecting 'kick #channel foobar' or similar
                 # so must be at least 3 words
                 if len(words) < 3:
-                    omt = self._out_msg_thread
                     omt.add(omt.privmsg, [speaker, 'bad KICK command'])
                 self._proc_kick_msg(speaker, words)
                 continue
             else:
-                omt = self._out_msg_thread
                 omt.add(omt.privmsg, [speaker, 'I don\'t understand'])
                 continue
 

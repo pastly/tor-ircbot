@@ -50,6 +50,9 @@ class CommandListenerThread(PBThread):
             speaker = tokens[2][1:][:-1]
             words = tokens[3:]
             if speaker not in self._masters:
+                # we get a lot of privmsges from -!- for some reason
+                if speaker == '!':
+                    continue
                 log.notice('Ignoring privmsg from non-master {}'.format(
                     speaker))
                 continue

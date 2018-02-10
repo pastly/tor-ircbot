@@ -164,38 +164,38 @@ class ChanOpThread(PBThread):
             log.notice('{} said a banned pattern'.format(speaker))
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                oat.set_chan_mode('+qq {}!*@* *!*@{}'
-                                  .format(mem.nick, mem.host),
-                                  'banned pattern')
+                self._chanserv_quiet_add(
+                    '{}!*@*'.format(mem.nick), 'banned pattern')
+                self._chanserv_quiet_add(
+                    '*!*@{}'.format(mem.host), 'banned pattern')
             else:
-                oat.set_chan_mode('+q {}!*@*'.format(speaker),
-                                  'banned pattern')
+                self._chanserv_quiet_add(
+                    '{}!*@*'.format(speaker), 'banned pattern')
         elif self._is_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} highlight spammed'.format(speaker))
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                oat.set_chan_mode('+bb {}!*@* *!*@{}'
-                                  .format(mem.nick, mem.host),
-                                  'mass highlight spam')
-                oat.kick_nick(mem.nick, 'mass highlight spam')
+                self._chanserv_akick_add(
+                    '{}!*@*'.format(mem.nick), 'mass highlight spam')
+                self._chanserv_akick_add(
+                    '*!*@{}'.format(mem.host), 'mass highlight spam')
             else:
-                oat.set_chan_mode('+b {}!*@*'.format(speaker),
-                                  'mass highlight spam')
-                oat.kick_nick(speaker, 'mass highlight spam')
+                self._chanserv_akick_add(
+                    '{}!*@*'.format(speaker), 'mass highlight spam')
         elif self._is_slow_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('The channel is being highlight spammed slowly. '
                        'Kicking', speaker)
-            oat.kick_nick(speaker, 'slow highlight spam')
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                oat.set_chan_mode('+bb {}!*@* *!*@{}'
-                                  .format(mem.nick, mem.host),
-                                  'slow highlight spam')
+                self._chanserv_akick_add(
+                    '{}!*@*'.format(mem.nick), 'slow highlight spam')
+                self._chanserv_akick_add(
+                    '*!*@{}'.format(mem.host), 'slow highlight spam')
             else:
-                oat.set_chan_mode('+b {}!*@*'.format(speaker),
-                                  'slow highlight spam')
+                self._chanserv_akick_add(
+                    '{}!*@*'.format(speaker), 'slow highlight spam')
         elif self._is_speaker_flooding(speaker):
             log.notice(speaker, 'has said too much recently. Kicking.')
             oat.kick_nick(speaker, 'flooding')
@@ -299,6 +299,30 @@ class ChanOpThread(PBThread):
                  .format(Member(nick, user, host), len(self._members)))
         if len(self._members) <= old_len:
             log.warn('Adding {} to members didn\'t inc length'.format(nick))
+
+    def _chanserv_akick_add(self, mask, reason=''):
+        return self._chanserv('akick', 'add', mask, reason)
+
+    def _chanserv_akick_del(self, mask):
+        return self._chanserv('akick', 'del', mask, reason='')
+
+    def _chanserv_quiet_add(self, mask, reason=''):
+        return self._chanserv('quiet', 'add', mask, reason)
+
+    def _chanserv_quiet_del(self, mask):
+        return self._chanserv('quiet', 'del', mask, reason='')
+
+    def _chanserv(self, chanserv_list, action, mask, reason):
+        assert chanserv_list in ['akick', 'quiet']
+        assert action in ['add', 'del']
+        log = self._log
+        if len(reason) < 1 and action not in ['del']:
+            log.warn('Must give reason for', action, 'to/from', chanserv_list)
+            return
+        omt = self._out_msg_thread
+        message = '{l} {c} {a} {m} {r}'.format(
+            l=chanserv_list, c=self._channel_name, a=action, m=mask, r=reason)
+        omt.add(omt.privmsg, ['chanserv', message])
 
     def _shutdown(self):
         log = self._log

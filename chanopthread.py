@@ -178,16 +178,16 @@ class ChanOpThread(PBThread):
                 oat.set_chan_mode('+bb {}!*@* *!*@{}'
                                   .format(mem.nick, mem.host),
                                   'mass highlight spam')
-                oat.kick_nick(mem.nick)
+                oat.kick_nick(mem.nick, 'mass highlight spam')
             else:
                 oat.set_chan_mode('+b {}!*@*'.format(speaker),
                                   'mass highlight spam')
-                oat.kick_nick(speaker)
+                oat.kick_nick(speaker, 'mass highlight spam')
         elif self._is_slow_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('The channel is being highlight spammed slowly. '
                        'Kicking', speaker)
-            oat.kick_nick(speaker)
+            oat.kick_nick(speaker, 'slow highlight spam')
             if self._members.contains(speaker):
                 mem = self._members[speaker]
                 oat.set_chan_mode('+bb {}!*@* *!*@{}'
@@ -198,7 +198,7 @@ class ChanOpThread(PBThread):
                                   'slow highlight spam')
         elif self._is_speaker_flooding(speaker):
             log.notice(speaker, 'has said too much recently. Kicking.')
-            oat.kick_nick(speaker)
+            oat.kick_nick(speaker, 'flooding')
             oat.set_chan_mode('+R', 'flooding')
 
     def _contains_banned_pattern(self, words):

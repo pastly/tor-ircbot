@@ -103,14 +103,16 @@ class OperatorActionThread(PBThread):
             [out_msg.servmsg,
              ['/mode {} {}'.format(self._channel_name, mode_str)]])
 
-    def kick_nick(self, nick):
+    def kick_nick(self, nick, reason):
+        ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
-        log.info('Kicking {} from {}'.format(nick, self._channel_name))
+        log.notice(
+            'Kicking', nick, 'from', self._channel_name, 'because', reason)
         self.recv_action(
             out_msg.add,
             [out_msg.servmsg,
-             ['/kick {} {}'.format(self._channel_name, nick)]])
+             ['/kick {} {} :{}'.format(self._channel_name, nick, reason)]])
 
     def set_opped(self, opped):
         log = self._log

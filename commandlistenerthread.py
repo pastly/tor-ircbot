@@ -122,11 +122,11 @@ class CommandListenerThread(PBThread):
                             'channel {}'.format(channel)])
                 return
             oat = self._operator_action_threads[channel]
-            oat.kick_nick(nick)
+            oat.kick_nick(nick, '{} said so'.format(speaker))
         else:
             for channel in self._operator_action_threads:
                 oat = self._operator_action_threads[channel]
-                oat.kick_nick(nick)
+                oat.kick_nick(nick, '{} said so'.format(speaker))
 
     def _shutdown(self):
         log = self._log

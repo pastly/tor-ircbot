@@ -48,6 +48,7 @@ class WatchFileThread(PBThread):
                 continue
         sub.terminate()
         log.notice('Stopping tail process for', self._fname)
+        return self._shutdown()
 
     def _shutdown(self):
         log = self._log

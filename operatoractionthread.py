@@ -95,8 +95,9 @@ class OperatorActionThread(PBThread):
         ''' Call from other threads. '''
         log = self._log
         out_msg = self._out_msg
-        log.info('Setting channel mode', mode_str, 'on', self._channel_name,
-                 'because', reason)
+        log.notice(
+            'Setting channel mode', mode_str, 'on', self._channel_name,
+            'because', reason)
         self.recv_action(
             out_msg.add,
             [out_msg.servmsg,

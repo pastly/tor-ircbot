@@ -53,6 +53,8 @@ class IIWatchdogThread(PBThread):
             self._log.info('Creating FIFO', server_in)
             os.mkfifo(server_in)
         channel_names = json.loads(conf['ii']['channels'])
+        if 'log' in conf and 'out_channel' in conf['log']:
+            channel_names.append(conf['log']['out_channel'])
         for channel_name in channel_names:
             channel_dir = os.path.join(server_dir, channel_name)
             os.makedirs(channel_dir, exist_ok=True)

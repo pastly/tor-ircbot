@@ -9,6 +9,7 @@ from threading import Event
 import signalstuff as ss
 from tokenbucket import token_bucket
 from watchfilethread import WatchFileThread
+from logtomastersthread import LogToMastersThread
 from chanopthread import ChanOpThread
 from commandlistenerthread import CommandListenerThread
 from iiwatchdogthread import IIWatchdogThread
@@ -29,14 +30,14 @@ def main():
             'ii_watchdog': None,
             'op_actions': {},
             'out_message': None,
+            'log_to_masters': None,
         },
         'events': {
             'is_shutting_down': Event(),
         },
         'signal_stack': [],
         'conf': ConfigParser(),
-        'log': PastlyLogger(debug='/dev/stdout', overwrite=['debug'],
-                            log_threads=True, default='notice')
+        'log': None,
     }
 
     def sigint(signum, stack_frame):
@@ -53,6 +54,17 @@ def main():
 
     server_dir = os.path.join(
         gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
+
+    if gs['conf']['log']['in_file'] and gs['conf']['log']['out_channel']:
+        fname = gs['conf']['log']['in_file']
+        gs['log'] = PastlyLogger(
+            debug='/dev/stdout', notice=fname,
+            overwrite=['debug'], log_threads=True, default='notice')
+    else:
+        gs['log'] = PastlyLogger(
+            debug='/dev/stdout', overwrite=['debug'],
+            log_threads=True, default='notice')
+
     channel_names = json.loads(gs['conf']['ii']['channels'])
 
     gs['threads']['out_message'] = \
@@ -80,12 +92,18 @@ def main():
     gs['threads']['watch_priv'] = WatchFileThread(
         os.path.join(server_dir, 'kist', 'out'), 'priv', gs)
 
+    if gs['conf']['log']['in_file'] and gs['conf']['log']['out_channel']:
+        gs['threads']['log_to_masters'] = LogToMastersThread(
+            gs['conf']['log']['in_file'], gs)
+
     gs['threads']['ii_watchdog'] = IIWatchdogThread(gs)
 
     gs['threads']['ii_watchdog'].start()
     time.sleep(5)
     for t in gs['threads']:
         thread = gs['threads'][t]
+        if thread is None:
+            continue
         if isinstance(thread, dict):
             for thread_ in thread:
                 if not thread[thread_].is_alive():

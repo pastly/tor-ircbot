@@ -66,8 +66,6 @@ class ChanOpThread(PBThread):
         if 'pats' in self._conf['banned_patterns']:
             for p in json.loads(self._conf['banned_patterns']['pats']):
                 self._banned_patterns.append(re.compile(p))
-                if self._log:
-                    self._log.debug(p)
         if self._log:
             self._log.info('ChanOpThread updated state')
 

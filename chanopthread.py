@@ -144,7 +144,7 @@ class ChanOpThread(PBThread):
             to_nick = words[4]
             log.info(from_nick, 'changing to', to_nick)
             if not self._members.contains(from_nick):
-                log.warn('Do not have a member with nick', from_nick)
+                log.info('Do not have a member with nick', from_nick)
             else:
                 mem = self._members[from_nick]
                 mem.set(nick=to_nick)

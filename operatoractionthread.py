@@ -118,4 +118,4 @@ class OperatorActionThread(PBThread):
             self._is_op.set()
         else:
             self._is_op.clear()
-        log.notice('We have been {}'.format("opped" if opped else "deopped"))
+        log.info('We have been {}'.format("opped" if opped else "deopped"))

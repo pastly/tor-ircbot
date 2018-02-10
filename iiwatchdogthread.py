@@ -47,9 +47,19 @@ class IIWatchdogThread(PBThread):
     def _prepare_ircdir(self):
         conf = self._conf
         server_dir = os.path.join(conf['ii']['ircdir'], conf['ii']['server'])
+        os.makedirs(server_dir, exist_ok=True)
+        server_in = os.path.join(server_dir, 'in')
+        if not os.path.exists(server_in):
+            self._log.info('Creating FIFO', server_in)
+            os.mkfifo(server_in)
         channel_names = json.loads(conf['ii']['channels'])
         for channel_name in channel_names:
-            os.makedirs(os.path.join(server_dir, channel_name), exist_ok=True)
+            channel_dir = os.path.join(server_dir, channel_name)
+            os.makedirs(channel_dir, exist_ok=True)
+            channel_in = os.path.join(channel_dir, 'in')
+            if not os.path.exists(channel_in):
+                self._log.info('Creating FIFO', channel_in)
+                os.mkfifo(channel_in)
 
     def update_global_state(self, gs):
         self._log = gs['log']

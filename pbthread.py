@@ -14,10 +14,9 @@ class PBThread:
         self._thread.start()
         return self
 
-    # This should probably NOT be reimplemented in children. Since
-    # multiprocessing.Thread has an is_alive() func, I thought I should too.
-    #def is_alive(self):
-    #    return self._started
+    # This should probably NOT be reimplemented in children.
+    def is_alive(self):
+        return self._started
 
     # This probably SHOULD be reimplemented in children. Instead of using a _gs
     # member, it would be smarter to only pull the things out of the global

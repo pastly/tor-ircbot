@@ -82,13 +82,17 @@ def main():
 
     gs['threads']['ii_watchdog'] = IIWatchdogThread(gs)
 
+    gs['threads']['ii_watchdog'].start()
+    time.sleep(5)
     for t in gs['threads']:
         thread = gs['threads'][t]
         if isinstance(thread, dict):
             for thread_ in thread:
-                thread[thread_].start()
+                if not thread[thread_].is_alive():
+                    thread[thread_].start()
         else:
-            thread.start()
+            if not thread.is_alive():
+                thread.start()
 
     # must add current signals to the beginning of the stack as we need to keep
     # track of what the default signals are

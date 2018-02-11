@@ -21,6 +21,7 @@ class OperatorActionThread(PBThread):
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._out_msg = gs['threads']['out_message']
+        self._heart_thread = gs['threads']['heart']
 
     def _enter(self):
         log = self._log
@@ -98,6 +99,7 @@ class OperatorActionThread(PBThread):
         log.notice(
             'Setting channel mode', mode_str, 'on', self._channel_name,
             'because', reason)
+        self._heart_thread.event_set_mode()
         self.recv_action(
             out_msg.add,
             [out_msg.servmsg,
@@ -109,6 +111,7 @@ class OperatorActionThread(PBThread):
         out_msg = self._out_msg
         log.notice(
             'Kicking', nick, 'from', self._channel_name, 'because', reason)
+        self._heart_thread.event_kick()
         self.recv_action(
             out_msg.add,
             [out_msg.servmsg,

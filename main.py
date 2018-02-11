@@ -15,6 +15,7 @@ from commandlistenerthread import CommandListenerThread
 from iiwatchdogthread import IIWatchdogThread
 from operatoractionthread import OperatorActionThread
 from outboundmessagethread import OutboundMessageThread
+from heartbeatthread import HeartbeatThread
 from pastlylogger import PastlyLogger
 
 
@@ -31,6 +32,7 @@ def main():
             'op_actions': {},
             'out_message': None,
             'log_to_masters': None,
+            'heart': None,
         },
         'events': {
             'is_shutting_down': Event(),
@@ -68,6 +70,8 @@ def main():
             log_threads=True, default='notice')
 
     channel_names = json.loads(gs['conf']['ii']['channels'])
+
+    gs['threads']['heart'] = HeartbeatThread(gs)
 
     gs['threads']['out_message'] = \
         OutboundMessageThread(gs, long_timeout=5,

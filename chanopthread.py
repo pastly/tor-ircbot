@@ -68,6 +68,7 @@ class ChanOpThread(PBThread):
         t = gs['threads']['op_actions'][self._channel_name]
         self._operator_action_thread = t
         self._out_msg_thread = gs['threads']['out_message']
+        self._heart_thread = gs['threads']['heart']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
         self._banned_patterns = []
@@ -133,11 +134,13 @@ class ChanOpThread(PBThread):
             self._members.add(nick, user, host)
             log.info('Added (join)', '{}!{}@{} ({})'
                      .format(nick, user, host, len(self._members)))
+            self._heart_thread.event_add_nick()
         elif ' '.join(words[1:4]) == 'has left {}'.format(channel_name):
             s = words[0]
             nick = s.split('(')[0]
             self._members.remove(nick)
             log.info('Removed (left) {} ({})'.format(nick, len(self._members)))
+            self._heart_thread.event_del_nick()
         elif ' '.join(words[1:3]) == 'has quit':
             s = words[0]
             nick = s.split('(')[0]
@@ -145,12 +148,14 @@ class ChanOpThread(PBThread):
                 self._members.remove(nick)
                 log.info('Removed (quit) {} ({})'.format(
                     nick, len(self._members)))
+                self._heart_thread.event_del_nick()
             if nick in self._message_flood_token_bucket_states:
                 self._message_flood_token_bucket_states.pop(nick)
         elif ' '.join(words[1:4]) == 'changed nick to':
             from_nick = words[0]
             to_nick = words[4]
             log.info(from_nick, 'changing to', to_nick)
+            self._heart_thread.event_change_nick()
             if not self._members.contains(from_nick):
                 log.info('Do not have a member with nick', from_nick)
             else:
@@ -167,6 +172,7 @@ class ChanOpThread(PBThread):
         log = self._log
         oat = self._operator_action_thread
         log.debug('<{}> {}'.format(speaker, ' '.join(words)))
+        self._heart_thread.event_chan_msg()
         if self._contains_banned_pattern(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} said a banned pattern'.format(speaker))
@@ -310,18 +316,22 @@ class ChanOpThread(PBThread):
 
     def chanserv_akick_add(self, mask, reason=''):
         ''' Can be called from any thread, including this one '''
+        self._heart_thread.event_add_akick()
         return self._chanserv('akick', 'add', mask, reason)
 
     def chanserv_akick_del(self, mask):
         ''' Can be called from any thread, including this one '''
+        self._heart_thread.event_del_akick()
         return self._chanserv('akick', 'del', mask, reason='')
 
     def chanserv_quiet_add(self, mask, reason=''):
         ''' Can be called from any thread, including this one '''
+        self._heart_thread.event_add_quiet()
         return self._chanserv('quiet', 'add', mask, reason)
 
     def chanserv_quiet_del(self, mask):
         ''' Can be called from any thread, including this one '''
+        self._heart_thread.event_del_quiet()
         return self._chanserv('quiet', 'del', mask, reason='')
 
     def _chanserv(self, chanserv_list, action, mask, reason):

@@ -301,7 +301,7 @@ class ChanOpThread(PBThread):
         log = self._log
         out_msg = self._out_msg_thread
         channel_name = self._channel_name
-        log.notice('Clearing members set. Asking for members again.')
+        log.info('Clearing members set. Asking for members again.')
         self._is_getting_members.set()
         out_msg.add(out_msg.servmsg, ['/who {}'.format(channel_name)])
 

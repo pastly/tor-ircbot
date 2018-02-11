@@ -55,7 +55,9 @@ def main():
     server_dir = os.path.join(
         gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
 
-    if gs['conf']['log']['in_file'] and gs['conf']['log']['out_channel']:
+    if 'log' in gs['conf'] and \
+            'in_file' in gs['conf']['log'] and \
+            'out_channel' in gs['conf']['log']:
         fname = gs['conf']['log']['in_file']
         gs['log'] = PastlyLogger(
             debug='/dev/stdout', notice=fname,
@@ -92,14 +94,16 @@ def main():
     gs['threads']['watch_priv'] = WatchFileThread(
         os.path.join(server_dir, 'kist', 'out'), 'priv', gs)
 
-    if gs['conf']['log']['in_file'] and gs['conf']['log']['out_channel']:
+    if 'log' in gs['conf'] and \
+            'in_file' in gs['conf']['log'] and \
+            'out_channel' in gs['conf']['log']:
         gs['threads']['log_to_masters'] = LogToMastersThread(
             gs['conf']['log']['in_file'], gs)
 
     gs['threads']['ii_watchdog'] = IIWatchdogThread(gs)
 
     gs['threads']['ii_watchdog'].start()
-    time.sleep(5)
+    time.sleep(2)
     for t in gs['threads']:
         thread = gs['threads'][t]
         if thread is None:

@@ -54,6 +54,14 @@ class ChanOpThread(PBThread):
             float(self._conf['flood']['burst_message_limit']))
         self._message_flood_token_bucket_states = {}
 
+    @property
+    def channel_name(self):
+        return self._channel_name
+
+    @property
+    def members(self):
+        return self._members
+
     def update_global_state(self, gs):
         self._log = gs['log']
         assert self._channel_name in gs['threads']['op_actions']
@@ -164,42 +172,42 @@ class ChanOpThread(PBThread):
             log.notice('{} said a banned pattern'.format(speaker))
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                self._chanserv_quiet_add(
-                    '{}!*@*'.format(mem.nick), 'banned pattern')
-                self._chanserv_quiet_add(
-                    '*!*@{}'.format(mem.host), 'banned pattern')
+                self.chanserv_quiet_add(
+                    '{}!*@*'.format(mem.nick), 'banned pattern (auto)')
+                self.chanserv_quiet_add(
+                    '*!*@{}'.format(mem.host), 'banned pattern (auto)')
             else:
-                self._chanserv_quiet_add(
-                    '{}!*@*'.format(speaker), 'banned pattern')
+                self.chanserv_quiet_add(
+                    '{}!*@*'.format(speaker), 'banned pattern (auto)')
         elif self._is_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} highlight spammed'.format(speaker))
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                self._chanserv_akick_add(
-                    '{}!*@*'.format(mem.nick), 'mass highlight spam')
-                self._chanserv_akick_add(
-                    '*!*@{}'.format(mem.host), 'mass highlight spam')
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(mem.nick), 'mass highlight spam (auto)')
+                self.chanserv_akick_add(
+                    '*!*@{}'.format(mem.host), 'mass highlight spam (auto)')
             else:
-                self._chanserv_akick_add(
-                    '{}!*@*'.format(speaker), 'mass highlight spam')
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(speaker), 'mass highlight spam (auto)')
         elif self._is_slow_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('The channel is being highlight spammed slowly. '
                        'Kicking', speaker)
             if self._members.contains(speaker):
                 mem = self._members[speaker]
-                self._chanserv_akick_add(
-                    '{}!*@*'.format(mem.nick), 'slow highlight spam')
-                self._chanserv_akick_add(
-                    '*!*@{}'.format(mem.host), 'slow highlight spam')
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(mem.nick), 'slow highlight spam (auto)')
+                self.chanserv_akick_add(
+                    '*!*@{}'.format(mem.host), 'slow highlight spam (auto)')
             else:
-                self._chanserv_akick_add(
-                    '{}!*@*'.format(speaker), 'slow highlight spam')
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(speaker), 'slow highlight spam (auto)')
         elif self._is_speaker_flooding(speaker):
             log.notice(speaker, 'has said too much recently. Kicking.')
-            oat.kick_nick(speaker, 'flooding')
-            oat.set_chan_mode('+R', 'flooding')
+            oat.kick_nick(speaker, 'flooding (auto)')
+            oat.set_chan_mode('+R', 'flooding (auto)')
 
     def _contains_banned_pattern(self, words):
         # words = ' '.join([ w.lower() for w in words ])
@@ -300,19 +308,24 @@ class ChanOpThread(PBThread):
         if len(self._members) <= old_len:
             log.warn('Adding {} to members didn\'t inc length'.format(nick))
 
-    def _chanserv_akick_add(self, mask, reason=''):
+    def chanserv_akick_add(self, mask, reason=''):
+        ''' Can be called from any thread, including this one '''
         return self._chanserv('akick', 'add', mask, reason)
 
-    def _chanserv_akick_del(self, mask):
+    def chanserv_akick_del(self, mask):
+        ''' Can be called from any thread, including this one '''
         return self._chanserv('akick', 'del', mask, reason='')
 
-    def _chanserv_quiet_add(self, mask, reason=''):
+    def chanserv_quiet_add(self, mask, reason=''):
+        ''' Can be called from any thread, including this one '''
         return self._chanserv('quiet', 'add', mask, reason)
 
-    def _chanserv_quiet_del(self, mask):
+    def chanserv_quiet_del(self, mask):
+        ''' Can be called from any thread, including this one '''
         return self._chanserv('quiet', 'del', mask, reason='')
 
     def _chanserv(self, chanserv_list, action, mask, reason):
+        ''' Can be called from any thread, including this one '''
         assert chanserv_list in ['akick', 'quiet']
         assert action in ['add', 'del']
         log = self._log
@@ -322,7 +335,8 @@ class ChanOpThread(PBThread):
         omt = self._out_msg_thread
         message = '{l} {c} {a} {m} {r}'.format(
             l=chanserv_list, c=self._channel_name, a=action, m=mask, r=reason)
-        omt.add(omt.privmsg, ['chanserv', message])
+        log.notice('Sending to chanserv:', message)
+        omt.add(omt.privmsg, ['pastly', message])
 
     def _shutdown(self):
         log = self._log

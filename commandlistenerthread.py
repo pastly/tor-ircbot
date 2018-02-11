@@ -4,6 +4,10 @@ import json
 
 
 class CommandListenerThread(PBThread):
+    valid_masks = ['nick', 'nick*', '*nick', '*nick*',
+                   'user', 'user*', '*user', '*user*',
+                   'host', 'host*', '*host', '*host*']
+
     def __init__(self, global_state):
         PBThread.__init__(self, self._enter, name='CommandListener')
         self._message_queue = Queue(100)
@@ -12,6 +16,7 @@ class CommandListenerThread(PBThread):
     def update_global_state(self, gs):
         self._log = gs['log']
         self._out_msg_thread = gs['threads']['out_message']
+        self._chan_op_threads = gs['threads']['chan_ops']
         self._operator_action_threads = gs['threads']['op_actions']
         self._conf = gs['conf']
         self._is_shutting_down = gs['events']['is_shutting_down']
@@ -72,7 +77,11 @@ class CommandListenerThread(PBThread):
                 # so must be at least 3 words
                 if len(words) < 3:
                     omt.add(omt.privmsg, [speaker, 'bad KICK command'])
+                    continue
                 self._proc_kick_msg(speaker, words)
+                continue
+            elif words[0].lower() in ['akick', 'quiet']:
+                self._proc_akick_or_quiet_msg(speaker, words)
                 continue
             else:
                 omt.add(omt.privmsg, [speaker, 'I don\'t understand'])
@@ -127,6 +136,87 @@ class CommandListenerThread(PBThread):
             for channel in self._operator_action_threads:
                 oat = self._operator_action_threads[channel]
                 oat.kick_nick(nick, '{} said so'.format(speaker))
+
+    def _calculate_mask(self, mem, mask):
+        assert mask in CommandListenerThread.valid_masks
+        if mask == 'nick':
+            return '{}!*@*'.format(mem.nick)
+        elif mask == 'nick*':
+            return '{}*!*@*'.format(mem.nick)
+        elif mask == '*nick':
+            return '*{}!*@*'.format(mem.nick)
+        elif mask == '*nick*':
+            return '*{}*!*@*'.format(mem.nick)
+        elif mask == 'user':
+            return '*!{}@*'.format(mem.user)
+        elif mask == 'user*':
+            return '*!{}*@*'.format(mem.user)
+        elif mask == '*user':
+            return '*!*{}@*'.format(mem.user)
+        elif mask == '*user*':
+            return '*!*{}*@*'.format(mem.user)
+        elif mask == 'host':
+            return '*!*@{}'.format(mem.host)
+        elif mask == 'host*':
+            return '*!*@{}*'.format(mem.host)
+        elif mask == '*host':
+            return '*!*@*{}'.format(mem.host)
+        return '*!*@*{}*'.format(mem.host)
+
+    def _send_akick_or_quiet_msg(self, chan, verb, nick, masks, reason):
+        assert chan in self._chan_op_threads
+        assert verb in ['akick', 'quiet']
+        for mask in masks:
+            assert mask in CommandListenerThread.valid_masks
+        log = self._log
+        thread = self._chan_op_threads[chan]
+        if not thread.members.contains(nick):
+            log.warn('Channel', chan, 'doesn\'t have nick', nick,
+                     'so ignoring masks and just akicking/quieting the nick')
+            if verb == 'akick':
+                thread.chanserv_akick_add(nick, reason)
+            else:
+                thread.chanserv_quiet_add(nick, reason)
+            return
+        mem = thread.members[nick]
+        for mask_ in masks:
+            mask = self._calculate_mask(mem, mask_)
+            if verb == 'akick':
+                thread.chanserv_akick_add(mask, reason)
+            else:
+                thread.chanserv_quiet_add(mask, reason)
+
+    def _proc_akick_or_quiet_msg(self, speaker, words):
+        assert words[0].lower() in ['quiet', 'akick']
+        assert speaker in self._masters
+        omt = self._out_msg_thread
+        if len(words) < 5:
+            omt.add(omt.privmsg,
+                    [speaker,
+                     'Bad command. <akick|quiet> <chan> <nick> <masks> '
+                     '<reason>'])
+            return
+        verb, channel, nick, masks, *reason = words
+        verb = verb.lower()
+        masks = masks.split(',')
+        valid_masks = [m for m in masks
+                       if m in CommandListenerThread.valid_masks]
+        if len(valid_masks) < 1:
+            omt.add(omt.privmsg,
+                    [speaker, 'No valid masks in: {}'.format(masks)])
+            return
+        masks = valid_masks
+        reason = ' '.join(reason) + ' ({})'.format(speaker)
+        if channel not in self._chan_op_threads and channel != 'all':
+            omt.add(omt.privmsg,
+                    [speaker,
+                     'Unknown channel {}'.format(channel)])
+            return
+        if channel == 'all':
+            for chan in self._chan_op_threads:
+                self._send_akick_or_quiet_msg(chan, verb, nick, masks, reason)
+        else:
+            self._send_akick_or_quiet_msg(channel, verb, nick, masks, reason)
 
     def _shutdown(self):
         log = self._log

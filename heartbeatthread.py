@@ -109,6 +109,8 @@ class HeartbeatThread(PBThread):
     def _should_log_heartbeat(self):
         now = time.time()
         interval = self._interval
+        if interval < 0:
+            return False
         last = self._last
         return last + interval < now
 
@@ -158,6 +160,11 @@ class HeartbeatThread(PBThread):
         self._interval = 60 * 60 * 4  # 4 hours
         if 'log' in conf and 'heartbeat_interval' in conf['log']:
             self._interval = conf.getint('log', 'heartbeat_interval')
+        if self._interval == 0:
+            self._log('HeartbeatThread defaulting to 4hr interval')
+            self._interval = 60 * 60 * 4  # 4 hours
+        elif self._interval < 0:
+            self._log('HeartbeatThread disabled with negative interval')
         self._last = time.time()
         self._is_shutting_down = gs['events']['is_shutting_down']
 

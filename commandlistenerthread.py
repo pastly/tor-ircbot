@@ -84,6 +84,8 @@ class CommandListenerThread(PBThread):
             if ' '.join(words).lower() == 'ping':
                 self._proc_ping_msg(type, speaker, words)
                 continue
+            elif words[0].lower() == 'help':
+                self._proc_help_msg(type, speaker, words)
             elif words[0].lower() == 'mode':
                 self._proc_mode_msg(type, speaker, words)
                 continue
@@ -96,6 +98,11 @@ class CommandListenerThread(PBThread):
             else:
                 self._notify_impl(type, speaker, 'I don\'t understand')
                 continue
+
+    def _proc_help_msg(self, type, speaker, words):
+        assert words[0].lower() == 'help'
+        self._notify_impl(type, speaker, 'I need it more than you '
+                          '(Seriously. Add amazing help messages)')
 
     def _notify_impl(self, type, speaker, msg):
         assert type in ['priv', 'comm']

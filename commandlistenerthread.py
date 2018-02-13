@@ -70,7 +70,7 @@ class CommandListenerThread(PBThread):
             words = tokens[3:]
             if len(words) < 1:
                 continue
-            if words[0] == '#' or words[0][0] == '#':
+            if words[0][0] == '#':
                 # ignore explicit non-commands (comments)
                 continue
             if speaker not in self._masters:

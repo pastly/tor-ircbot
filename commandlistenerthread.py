@@ -54,6 +54,11 @@ class CommandListenerThread(PBThread):
             # remove trailing '>'
             speaker = tokens[2][1:][:-1]
             words = tokens[3:]
+            if len(words) < 1:
+                continue
+            if words[0] == '#' or words[0][0] == '#':
+                # ignore explicit non-commands (comments)
+                continue
             if speaker not in self._masters:
                 # we get a lot of privmsges from -!- for some reason
                 if speaker == '!':

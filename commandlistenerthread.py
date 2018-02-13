@@ -63,7 +63,6 @@ class CommandListenerThread(PBThread):
                 log.warn('Got command from command channel, but no command '
                          'channel known. Ignoring.')
                 continue
-            omt = self._out_msg_thread
             tokens = line.split()
             # the speaker is token at index 2, then remove leading '<', then
             # remove trailing '>'

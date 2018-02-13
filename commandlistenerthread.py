@@ -1,12 +1,19 @@
 from pbthread import PBThread
 from queue import Empty, Queue
 import json
+import random
+import time
 
 
 class CommandListenerThread(PBThread):
     valid_masks = ['nick', 'nick*', '*nick', '*nick*',
                    'user', 'user*', '*user', '*user*',
                    'host', 'host*', '*host', '*host*']
+
+    pong_msgs = ['pong', 'PONG', 'POOOONG!!!!', 'JFC pong', 'Please stop :\'(',
+                 'WTF do you want from me?', 'What did I do to deserve this?',
+                 'moo', 'ACK', 'RST', 'I wish I was as cool as you <3',
+                 'P O N G spells pong!']
 
     def __init__(self, global_state):
         PBThread.__init__(self, self._enter, name='CommandListener')
@@ -31,6 +38,10 @@ class CommandListenerThread(PBThread):
             self._log.info('Configured masters: {}'.format(
                 ', '.join(self._masters)))
         self._channel_names = json.loads(self._conf['ii']['channels'])
+        self._command_channel = None
+        if 'general' in self._conf and \
+                'command_channel' in self._conf['general']:
+            self._command_channel = self._conf['general']['command_channel']
         if self._log:
             self._log.info('CommandListenerThread updated state')
 
@@ -46,7 +57,11 @@ class CommandListenerThread(PBThread):
                     return self._shutdown()
             if not len(line):
                 continue
-            if type != 'priv':
+            if type not in ['priv', 'comm']:
+                continue
+            if type == 'comm' and self._command_channel is None:
+                log.warn('Got command from command channel, but no command '
+                         'channel known. Ignoring.')
                 continue
             omt = self._out_msg_thread
             tokens = line.split()
@@ -63,50 +78,82 @@ class CommandListenerThread(PBThread):
                 # we get a lot of privmsges from -!- for some reason
                 if speaker == '!':
                     continue
-                log.notice('Ignoring privmsg from non-master {}'.format(
-                    speaker))
+                log.notice('Ignoring command/privmsg from non-master',
+                           speaker)
                 continue
             if ' '.join(words).lower() == 'ping':
-                omt.add(omt.pong, [speaker])
+                self._proc_ping_msg(type, speaker, words)
                 continue
             elif words[0].lower() == 'mode':
-                # expecting 'mode #channel +Rb foobar!*@*' or similar
-                # so must be at least 3 words
-                if len(words) < 3:
-                    omt.add(omt.privmsg, [speaker, 'bad MODE command'])
-                    continue
-                self._proc_mode_msg(speaker, words)
+                self._proc_mode_msg(type, speaker, words)
                 continue
             elif words[0].lower() == 'kick':
-                # expecting 'kick #channel foobar' or similar
-                # so must be at least 3 words
-                if len(words) < 3:
-                    omt.add(omt.privmsg, [speaker, 'bad KICK command'])
-                    continue
-                self._proc_kick_msg(speaker, words)
+                self._proc_kick_msg(type, speaker, words)
                 continue
             elif words[0].lower() in ['akick', 'quiet']:
-                self._proc_akick_or_quiet_msg(speaker, words)
+                self._proc_akick_or_quiet_msg(type, speaker, words)
                 continue
             else:
-                omt.add(omt.privmsg, [speaker, 'I don\'t understand'])
+                self._notify_impl(type, speaker, 'I don\'t understand')
                 continue
 
-    def _proc_mode_msg(self, speaker, words):
+    def _notify_impl(self, type, speaker, msg):
+        assert type in ['priv', 'comm']
+        omt = self._out_msg_thread
+        if type == 'priv':
+            target = speaker
+        else:
+            msg = '{}: {}'.format(speaker, msg)
+            target = self._command_channel
+        omt.add(omt.privmsg, [target, msg], priority=time.time()+300)
+
+    def _notify_okay(self, type, speaker, *ok):
+        if not ok:
+            ok = 'OK'
+        else:
+            ok = ' '.join(ok)
+        return self._notify_impl(type, speaker, ok)
+
+    def _notify_warn(self, type, speaker, *warn_msg):
+        warn_msg = ' '.join(warn_msg)
+        warn_msg = '(W) {}'.format(warn_msg)
+        return self._notify_impl(type, speaker, warn_msg)
+
+    def _notify_error(self, type, speaker, *error_msg):
+        error_msg = ' '.join(error_msg)
+        error_msg = '(E) {}'.format(error_msg)
+        return self._notify_impl(type, speaker, error_msg)
+
+    def _proc_ping_msg(self, type, speaker, words):
+        assert type in ['priv', 'comm']
+        assert ' '.join(words).lower() == 'ping'
+        omt = self._out_msg_thread
+        pong = random.choice(CommandListenerThread.pong_msgs)
+        if type == 'priv':
+            omt.add(omt.privmsg, [speaker, pong])
+        else:
+            chan = self._command_channel
+            msg = '{}: {}'.format(speaker, pong)
+            omt.add(omt.privmsg, [chan, msg])
+
+    def _proc_mode_msg(self, type, speaker, words):
         assert words[0].lower() == 'mode'
         assert speaker in self._masters
-        omt = self._out_msg_thread
+        # expecting 'mode #channel +Rb foobar!*@*' or similar
+        # so must be at least 3 words
+        if len(words) < 3:
+            self._notify_error(type, speaker, 'bad MODE command')
+            return
         channel = words[1]
         mode_str = ' '.join(words[2:])
         if channel != 'all':
             if channel not in self._channel_names:
-                omt.add(omt.privmsg,
-                        [speaker, 'not moderating channel {}'.format(channel)])
+                self._notify_error(type, speaker, 'not moderating channel',
+                                   channel)
                 return
             if channel not in self._operator_action_threads:
-                omt.add(omt.privmsg,
-                        [speaker, 'cannot find operator action thread for '
-                            'channel {}'.format(channel)])
+                self._notify_error(type, speaker, 'cannot find operator '
+                                   'action thread for channel', channel)
                 return
             oat = self._operator_action_threads[channel]
             oat.set_chan_mode(mode_str, '{} said so'.format(speaker))
@@ -114,26 +161,26 @@ class CommandListenerThread(PBThread):
             for channel in self._operator_action_threads:
                 oat = self._operator_action_threads[channel]
                 oat.set_chan_mode(mode_str, '{} said so'.format(speaker))
+        self._notify_okay(type, speaker)
 
-    def _proc_kick_msg(self, speaker, words):
+    def _proc_kick_msg(self, type, speaker, words):
         assert words[0].lower() == 'kick'
         assert speaker in self._masters
-        omt = self._out_msg_thread
+        # expecting 'kick #channel foobar' or similar
+        # so must be at least 3 words
         if len(words) != 3:
-            self._log.warn('Don\'t know how to kick "{}". Just give one '
-                           'name'.format(' '.join(words[1:])))
+            self._notify_error(type, speaker, 'bad KICK command')
             return
         channel = words[1]
         nick = words[2]
         if channel != 'all':
             if channel not in self._channel_names:
-                omt.add(omt.privmsg,
-                        [speaker, 'not moderating channel {}'.format(channel)])
+                self._notify_error(type, speaker, 'not moderating channel',
+                                   channel)
                 return
             if channel not in self._operator_action_threads:
-                omt.add(omt.privmsg,
-                        [speaker, 'cannot find operator action thread for '
-                            'channel {}'.format(channel)])
+                self._notify_error(type, speaker, 'cannot find operator '
+                                   'action thread for channel', channel)
                 return
             oat = self._operator_action_threads[channel]
             oat.kick_nick(nick, '{} said so'.format(speaker))
@@ -141,6 +188,7 @@ class CommandListenerThread(PBThread):
             for channel in self._operator_action_threads:
                 oat = self._operator_action_threads[channel]
                 oat.kick_nick(nick, '{} said so'.format(speaker))
+        self._notify_okay(type, speaker)
 
     def _calculate_mask(self, mem, mask):
         assert mask in CommandListenerThread.valid_masks
@@ -168,16 +216,18 @@ class CommandListenerThread(PBThread):
             return '*!*@*{}'.format(mem.host)
         return '*!*@*{}*'.format(mem.host)
 
-    def _send_akick_or_quiet_msg(self, chan, verb, nick, masks, reason):
+    def _send_akick_or_quiet_msg(self, type, speaker,
+                                 chan, verb, nick, masks, reason):
         assert chan in self._chan_op_threads
         assert verb in ['akick', 'quiet']
         for mask in masks:
             assert mask in CommandListenerThread.valid_masks
-        log = self._log
         thread = self._chan_op_threads[chan]
         if not thread.members.contains(nick):
-            log.warn('Channel', chan, 'doesn\'t have nick', nick,
-                     'so ignoring masks and just akicking/quieting the nick')
+            self._notify_warn(
+                type, speaker, 'Channel', chan, 'doesn\'t have nick', nick,
+                'so ignoring masks and just akicking/quieting the nick')
+            nick = '{}!*@*'.format(nick)
             if verb == 'akick':
                 thread.chanserv_akick_add(nick, reason)
             else:
@@ -191,15 +241,12 @@ class CommandListenerThread(PBThread):
             else:
                 thread.chanserv_quiet_add(mask, reason)
 
-    def _proc_akick_or_quiet_msg(self, speaker, words):
+    def _proc_akick_or_quiet_msg(self, type, speaker, words):
         assert words[0].lower() in ['quiet', 'akick']
         assert speaker in self._masters
-        omt = self._out_msg_thread
         if len(words) < 5:
-            omt.add(omt.privmsg,
-                    [speaker,
-                     'Bad command. <akick|quiet> <chan> <nick> <masks> '
-                     '<reason>'])
+            self._notify_error(type, speaker, 'Bad command. <akick|quiet> '
+                               '<chan> <nick> <masks> <reason>')
             return
         verb, channel, nick, masks, *reason = words
         verb = verb.lower()
@@ -207,21 +254,21 @@ class CommandListenerThread(PBThread):
         valid_masks = [m for m in masks
                        if m in CommandListenerThread.valid_masks]
         if len(valid_masks) < 1:
-            omt.add(omt.privmsg,
-                    [speaker, 'No valid masks in: {}'.format(masks)])
+            self._notify_error(type, speaker, 'No valid masks in', masks)
             return
         masks = valid_masks
         reason = ' '.join(reason) + ' ({})'.format(speaker)
         if channel not in self._chan_op_threads and channel != 'all':
-            omt.add(omt.privmsg,
-                    [speaker,
-                     'Unknown channel {}'.format(channel)])
+            self._notify_error(type, speaker, 'Unknown channel', channel)
             return
         if channel == 'all':
             for chan in self._chan_op_threads:
-                self._send_akick_or_quiet_msg(chan, verb, nick, masks, reason)
+                self._send_akick_or_quiet_msg(type, speaker,
+                                              chan, verb, nick, masks, reason)
         else:
-            self._send_akick_or_quiet_msg(channel, verb, nick, masks, reason)
+            self._send_akick_or_quiet_msg(type, speaker,
+                                          channel, verb, nick, masks, reason)
+        self._notify_okay(type, speaker)
 
     def _shutdown(self):
         log = self._log

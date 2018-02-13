@@ -5,9 +5,10 @@ import subprocess
 class WatchFileThread(PBThread):
     def __init__(self, fname, type, global_state, channel_name=None, *args,
                  **kwargs):
-        # if <type> == 'chan', then <channel_name> must be given. Otherwise,
-        # it must not be given
-        if type == 'chan':
+        # if <type> == 'chan' or 'comm', then <channel_name> must be given.
+        # Otherwise, it must not be given
+        assert type in ['chan', 'comm', 'serv', 'priv']
+        if type in ['chan', 'comm']:
             assert channel_name is not None
             name = 'WatchFile-{}'.format(channel_name)
         else:

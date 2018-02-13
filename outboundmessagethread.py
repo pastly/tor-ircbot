@@ -1,5 +1,4 @@
 import os
-import random
 from pbthread import PBThread
 from actionqueue import ActionQueue
 
@@ -9,17 +8,15 @@ class OutboundMessageThread(PBThread):
     must do so through this class.
 
     Use the add() function to add an outbound message/command. For example, to
-    pong the user 'foobar':
+    privmsg the user 'pastly':
 
     >>> omt = outbound_message_thread
-    >>> omt.add(omt.pong, ['foobar'])
+    >>> omt.add(omt.privmsg, ['pastly', 'I dont like sand'])
 
     More generally, specify the function you want to call as the first argument
     to add(), any arguments you want to pass to it in as a list, and finally
     any keyword arguments you want to pass to it as a dictionary.
     '''
-    pong_msgs = ['pong', 'PONG', 'POOOONG!!!!', 'JFC pong', 'No. Just stop.',
-                 'WTF do you want from me?', 'I\'m busy', 'moo', 'ACK', 'RST']
 
     def __init__(self, global_state,
                  long_timeout=5, time_between_actions_func=None):
@@ -76,11 +73,3 @@ class OutboundMessageThread(PBThread):
         >>> omt.add(omt.notice, ['#foobar', 'Promise this isnt spam'])
         '''
         self.servmsg('/notice {} {}'.format(target, message))
-
-    def pong(self, nick):
-        ''' Do not call this function directly. Pass it as an argument to add()
-
-        >>> omt = outbound_message_thread
-        >>> omt.add(omt.pong, ['pastly'])
-        '''
-        self.privmsg(nick, random.choice(OutboundMessageThread.pong_msgs))

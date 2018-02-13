@@ -26,6 +26,7 @@ def main():
             'watch_chans': {},
             'watch_serv': None,
             'watch_priv': None,
+            'watch_comm': None,
             'chan_ops': {},
             'command_listener': None,
             'ii_watchdog': None,
@@ -96,6 +97,12 @@ def main():
 
     gs['threads']['watch_priv'] = WatchFileThread(
         os.path.join(server_dir, 'kist', 'out'), 'priv', gs)
+
+    if 'general' in gs['conf'] and 'command_channel' in gs['conf']['general']:
+        comm_chan = gs['conf']['general']['command_channel']
+        gs['threads']['watch_comm'] = WatchFileThread(
+            os.path.join(server_dir, comm_chan, 'out'), 'comm', gs,
+            channel_name=comm_chan)
 
     if 'log' in gs['conf'] and \
             'in_file' in gs['conf']['log'] and \

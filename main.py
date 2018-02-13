@@ -115,9 +115,11 @@ def main():
         if isinstance(thread, dict):
             for thread_ in thread:
                 if not thread[thread_].is_alive():
+                    thread[thread_].update_global_state(gs)
                     thread[thread_].start()
         else:
             if not thread.is_alive():
+                thread.update_global_state(gs)
                 thread.start()
 
     # must add current signals to the beginning of the stack as we need to keep

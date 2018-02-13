@@ -80,7 +80,7 @@ class ChanOpThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Started ChanOpThread instance')
+        log.info('Started ChanOpThread instance')
         fire_one_off_event(5, self._update_members_event_callback)
         self._update_members_event = RepeatedTimer(
             60*60*8,
@@ -351,7 +351,7 @@ class ChanOpThread(PBThread):
     def _shutdown(self):
         log = self._log
         self._update_members_event.stop()
-        log.notice('ChanOpThread going away')
+        log.info('ChanOpThread going away')
 
     def recv_line(self, type, line):
         self._message_queue.put((type, line))

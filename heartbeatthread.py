@@ -54,7 +54,7 @@ class HeartbeatThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Starting Heartbeatthread instance')
+        log.info('Starting Heartbeatthread instance')
         while not self._is_shutting_down.is_set():
             event = None
             try:
@@ -104,7 +104,7 @@ class HeartbeatThread(PBThread):
             assert None, 'Unreachable'
 
     def _shutdown(self):
-        self._log.notice('HeartbeatThread going away')
+        self._log.info('HeartbeatThread going away')
 
     def _should_log_heartbeat(self):
         now = time.time()

@@ -36,7 +36,7 @@ class CommandListenerThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Started CommandListenerThread instance')
+        log.info('Started CommandListenerThread instance')
         while not self._is_shutting_down.is_set():
             type, line = "", ""
             try:
@@ -220,7 +220,7 @@ class CommandListenerThread(PBThread):
 
     def _shutdown(self):
         log = self._log
-        log.notice('CommandListenerThread going away')
+        log.info('CommandListenerThread going away')
 
     def recv_line(self, type, line):
         self._message_queue.put((type, line))

@@ -15,7 +15,7 @@ class LogToMastersThread(PBThread):
     def _enter(self):
         log = self._log
         omt = self._out_msg_thread
-        log.notice('Started LogToMastersThread', self._fname, 'instance')
+        log.info('Started LogToMastersThread', self._fname, 'instance')
         sub = subprocess.Popen('tail -F -n 0 {}'.format(self._fname).split(),
                                stdout=subprocess.PIPE, bufsize=1)
         while not self._is_shutting_down.is_set():
@@ -32,13 +32,13 @@ class LogToMastersThread(PBThread):
                 log.warn('Can\'t decode line, so ignoring', line_)
                 continue
         sub.terminate()
-        log.notice('Stopping tail process for', self._fname)
+        log.info('Stopping tail process for', self._fname)
         return self._shutdown()
 
     def _shutdown(self):
         log = self._log
         if log:
-            log.notice('LogToMastersThread', self._fname, 'going away')
+            log.info('LogToMastersThread', self._fname, 'going away')
         return
 
     def update_global_state(self, gs):

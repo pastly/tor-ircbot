@@ -25,7 +25,7 @@ class OperatorActionThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Started OperatorActionThread instance')
+        log.info('Started OperatorActionThread instance')
         log.debug('Asking to be deopped')
         channel_name = self._channel_name
         self._out_msg.add(self._out_msg.privmsg,
@@ -64,7 +64,7 @@ class OperatorActionThread(PBThread):
 
     def _shutdown(self):
         log = self._log
-        log.notice('OperatorActionThread going away')
+        log.info('OperatorActionThread going away')
 
     def recv_action(self, *args, **kwargs):
         ''' Call from other threads. '''

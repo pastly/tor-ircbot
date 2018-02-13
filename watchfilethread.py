@@ -21,7 +21,7 @@ class WatchFileThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Started WatchFileThread', self._type, self._fname,
+        log.info('Started WatchFileThread', self._type, self._fname,
                    'instance')
         sub = subprocess.Popen('tail -F -n 0 {}'.format(self._fname).split(),
                                stdout=subprocess.PIPE, bufsize=1)
@@ -47,13 +47,13 @@ class WatchFileThread(PBThread):
                 log.warn('Can\'t decode line, so ignoring:', line_)
                 continue
         sub.terminate()
-        log.notice('Stopping tail process for', self._fname)
+        log.info('Stopping tail process for', self._fname)
         return self._shutdown()
 
     def _shutdown(self):
         log = self._log
         if log:
-            log.notice('WatchFileThread', self._type, self._fname,
+            log.info('WatchFileThread', self._type, self._fname,
                        'going away')
         return
 

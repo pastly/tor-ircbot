@@ -38,14 +38,14 @@ class OutboundMessageThread(PBThread):
 
     def _enter(self):
         log = self._log
-        log.notice('Started OutboundMessageThread instance')
+        log.info('Started OutboundMessageThread instance')
         while not self._is_shutting_down.is_set():
             self._action_queue.loop_once()
         self._shutdown()
 
     def _shutdown(self):
         log = self._log
-        log.notice('OutboundMessageThread going away')
+        log.info('OutboundMessageThread going away')
 
     def add(self, *args, **kwargs):
         ''' Use this function to add outbound messages/commands '''

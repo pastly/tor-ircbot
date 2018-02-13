@@ -345,8 +345,8 @@ class ChanOpThread(PBThread):
         omt = self._out_msg_thread
         message = '{l} {c} {a} {m} {r}'.format(
             l=chanserv_list, c=self._channel_name, a=action, m=mask, r=reason)
-        log.notice('Sending to chanserv:', message)
-        omt.add(omt.privmsg, ['pastly', message])
+        log.info('Sending to chanserv:', message)
+        omt.add(omt.privmsg, ['chanserv', message])
 
     def _shutdown(self):
         log = self._log

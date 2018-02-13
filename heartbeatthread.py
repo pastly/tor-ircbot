@@ -185,6 +185,10 @@ class HeartbeatThread(PBThread):
         ''' Call from other threads when events happen '''
         return self._add(HeartbeatThread.HBEvent.CHANGE_NICK)
 
+    def event_add_akick(self):
+        ''' Call from other threads when events happen '''
+        return self._add(HeartbeatThread.HBEvent.AKICK_ADD)
+
     def event_add_quiet(self):
         ''' Call from other threads when events happen '''
         return self._add(HeartbeatThread.HBEvent.QUIET_ADD)

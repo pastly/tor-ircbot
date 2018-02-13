@@ -44,7 +44,6 @@ def main():
 
     def sigint(signum, stack_frame):
         gs['events']['is_shutting_down'].set()
-        exit(0)
 
     def sigterm(signum, stack_frame):
         return sigint(signum, stack_frame)
@@ -128,8 +127,22 @@ def main():
     gs['signal_stack'] = ss.set_signals(gs['signal_stack'],
                                         sigint, sigterm, sighup)
 
-    while True:
-        time.sleep(10.0)
+    gs['log']('All started and ready to go. I can\'t wait to help!')
+
+    while not gs['events']['is_shutting_down'].is_set():
+        time.sleep(2.0)
+    gs['log'].info('Waiting for all threads to stop ... :/')
+    for t in gs['threads']:
+        thread = gs['threads'][t]
+        if thread is None:
+            continue
+        if isinstance(thread, dict):
+            for thread_ in thread:
+                thread[thread_].join()
+        else:
+            thread.join()
+
+    gs['log']('Bye bye :( If you see this, tell my wife I love her')
 
 
 if __name__ == '__main__':

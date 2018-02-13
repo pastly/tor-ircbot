@@ -86,13 +86,13 @@ class ChanOpThread(PBThread):
             60*60*8,
             self._update_members_event_callback)
         while not self._is_shutting_down.is_set():
-            type, line = "", ""
+            source, line = "", ""
             try:
-                type, line = self._message_queue.get(timeout=1)
+                source, line = self._message_queue.get(timeout=1)
             except Empty:
                 if self._is_shutting_down.is_set():
                     return self._shutdown()
-            if type not in ['chan', 'serv']:
+            if source not in ['chan', 'serv']:
                 continue
             if not len(line):
                 continue
@@ -353,5 +353,5 @@ class ChanOpThread(PBThread):
         self._update_members_event.stop()
         log.info('ChanOpThread going away')
 
-    def recv_line(self, type, line):
-        self._message_queue.put((type, line))
+    def recv_line(self, source, line):
+        self._message_queue.put((source, line))

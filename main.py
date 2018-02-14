@@ -6,7 +6,6 @@ import json
 from configparser import ConfigParser
 from threading import Event
 # my stuff
-import signalstuff as ss
 from tokenbucket import token_bucket
 from watchfilethread import WatchFileThread
 from logtomastersthread import LogToMastersThread
@@ -46,19 +45,9 @@ def main():
             'kill_logtomasters': Event(),
             'is_shutting_down': Event(),
         },
-        'signal_stack': [],
         'conf': ConfigParser(),
         'log': None,
     }
-
-    def sigint(signum, stack_frame):
-        gs['events']['is_shutting_down'].set()
-
-    def sigterm(signum, stack_frame):
-        return sigint(signum, stack_frame)
-
-    def sighup(signum, stack_frame):
-        pass
 
     gs['conf'].read(config_file)
 
@@ -135,12 +124,6 @@ def main():
             if not thread.is_alive():
                 thread.update_global_state(gs)
                 thread.start()
-
-    # must add current signals to the beginning of the stack as we need to keep
-    # track of what the default signals are
-    gs['signal_stack'] = ss.add_current_signals_to_stack([])
-    gs['signal_stack'] = ss.set_signals(gs['signal_stack'],
-                                        sigint, sigterm, sighup)
 
     gs['log']('All started and ready to go. I can\'t wait to help!')
 

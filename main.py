@@ -45,17 +45,13 @@ def create_threads(gs):
     for channel_name in channel_names:
         gs['threads']['op_actions'][channel_name] = \
             OperatorActionThread(gs, channel_name)
-
-    for channel_name in channel_names:
         gs['threads']['chan_ops'][channel_name] = \
             ChanOpThread(gs, channel_name)
-
-    gs['threads']['command_listener'] = CommandListenerThread(gs)
-
-    for channel_name in channel_names:
         gs['threads']['watch_chans'][channel_name] = WatchFileThread(
             os.path.join(server_dir, channel_name, 'out'), 'chan', gs,
             channel_name=channel_name)
+
+    gs['threads']['command_listener'] = CommandListenerThread(gs)
 
     gs['threads']['watch_serv'] = WatchFileThread(
         os.path.join(server_dir, 'out'), 'serv', gs)

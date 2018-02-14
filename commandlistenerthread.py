@@ -3,6 +3,7 @@ from queue import Empty, Queue
 import json
 import random
 import time
+import helpdocumentation as helpdocu
 
 
 class CommandListenerThread(PBThread):
@@ -100,8 +101,10 @@ class CommandListenerThread(PBThread):
 
     def _proc_help_msg(self, source, speaker, words):
         assert words[0].lower() == 'help'
-        self._notify_impl(source, speaker, 'I need it more than you '
-                          '(Seriously. Add amazing help messages)')
+        resp = helpdocu.get_help_response(' '.join(words))
+        resp_lines = resp.split('\n')
+        for line in resp_lines:
+            self._notify_impl(source, speaker, line)
 
     def _notify_impl(self, source, speaker, msg):
         assert source in ['priv', 'comm']
@@ -149,6 +152,7 @@ class CommandListenerThread(PBThread):
         # so must be at least 3 words
         if len(words) < 3:
             self._notify_error(source, speaker, 'bad MODE command')
+            self._proc_help_msg(source, speaker, 'help mode'.split())
             return
         channel = words[1]
         mode_str = ' '.join(words[2:])

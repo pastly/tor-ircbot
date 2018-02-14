@@ -20,7 +20,7 @@ class IIWatchdogThread(PBThread):
         ircdir = conf['ii']['ircdir']
         while True:
             self._prepare_ircdir()
-            log.notice('(Re)Starting ii process')
+            log.info('(Re)Starting ii process')
             ii = subprocess.Popen(
                 '{} -i {} -s {} -p {} -n {} -k PASS'
                 .format(ii_bin, ircdir, server, port, nick).split(' '),
@@ -40,7 +40,7 @@ class IIWatchdogThread(PBThread):
             # if we get to here, then we are shutting down and should just
             # throw it all away.
             if self._is_shutting_down.wait(2):
-                log.notice('Stopping ii process for good')
+                log.info('Stopping ii process for good')
                 ii.terminate()
                 break
 

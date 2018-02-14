@@ -43,7 +43,6 @@ def main():
             'kill_outmessage': Event(),
             'kill_heartbeat': Event(),
             'kill_logtomasters': Event(),
-            'is_shutting_down': Event(),
         },
         'conf': ConfigParser(),
         'log': None,
@@ -128,9 +127,9 @@ def main():
     gs['log']('All started and ready to go. I can\'t wait to help!')
 
     try:
-        while not gs['events']['is_shutting_down'].wait(timeout=60.0):
-            pass
-    except KeyboardInterrupt as e:
+        while True:
+            time.sleep(300)
+    except KeyboardInterrupt:
         pass
 
     gs['events']['kill_heartbeat'].set()

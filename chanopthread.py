@@ -70,7 +70,7 @@ class ChanOpThread(PBThread):
         self._out_msg_thread = gs['threads']['out_message']
         self._heart_thread = gs['threads']['heart']
         self._conf = gs['conf']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_chanops']
         self._banned_patterns = []
         if 'pats' in self._conf['banned_patterns']:
             for p in json.loads(self._conf['banned_patterns']['pats']):
@@ -85,12 +85,12 @@ class ChanOpThread(PBThread):
         self._update_members_event = RepeatedTimer(
             60*60*8,
             self._update_members_event_callback)
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             source, line = "", ""
             try:
                 source, line = self._message_queue.get(timeout=1)
             except Empty:
-                if self._is_shutting_down.is_set():
+                if self._end_event.is_set():
                     return self._shutdown()
             if source not in ['chan', 'serv']:
                 continue

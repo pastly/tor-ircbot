@@ -26,7 +26,7 @@ class IIWatchdogThread(PBThread):
                 .format(ii_bin, ircdir, server, port, nick).split(' '),
                 env={'PASS': server_pass},
             )
-            while not self._is_shutting_down.wait(10):
+            while not self._end_event.wait(10):
                 # if we aren't shutting down and we have a return code,
                 # then we need to restart the process. First exit this loop
                 if ii.poll() is not None:
@@ -39,7 +39,7 @@ class IIWatchdogThread(PBThread):
                 continue
             # if we get to here, then we are shutting down and should just
             # throw it all away.
-            if self._is_shutting_down.wait(2):
+            if self._end_event.wait(2):
                 log.info('Stopping ii process for good')
                 ii.terminate()
                 break
@@ -66,6 +66,6 @@ class IIWatchdogThread(PBThread):
     def update_global_state(self, gs):
         self._log = gs['log']
         self._conf = gs['conf']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_iiwatchdog']
         if self._log:
             self._log.info('IIWatchThread updated state')

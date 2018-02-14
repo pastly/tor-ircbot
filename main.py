@@ -36,6 +36,14 @@ def main():
             'heart': None,
         },
         'events': {
+            'kill_command_listener': Event(),
+            'kill_chanops': Event(),
+            'kill_opactions': Event(),
+            'kill_watches': Event(),
+            'kill_iiwatchdog': Event(),
+            'kill_outmessage': Event(),
+            'kill_heartbeat': Event(),
+            'kill_logtomasters': Event(),
             'is_shutting_down': Event(),
         },
         'signal_stack': [],
@@ -136,18 +144,50 @@ def main():
 
     gs['log']('All started and ready to go. I can\'t wait to help!')
 
-    while not gs['events']['is_shutting_down'].is_set():
-        time.sleep(2.0)
-    gs['log'].info('Waiting for all threads to stop ... :/')
-    for t in gs['threads']:
-        thread = gs['threads'][t]
-        if thread is None:
-            continue
-        if isinstance(thread, dict):
-            for thread_ in thread:
-                thread[thread_].join()
-        else:
-            thread.join()
+    try:
+        while not gs['events']['is_shutting_down'].wait(timeout=60.0):
+            pass
+    except KeyboardInterrupt as e:
+        pass
+
+    gs['events']['kill_heartbeat'].set()
+    gs['log'].notice('Waiting for heartbeat thread ...')
+    gs['threads']['heart'].join()
+
+    gs['events']['kill_command_listener'].set()
+    gs['log'].notice('Waiting for command listener threads ..')
+    gs['threads']['command_listener'].join()
+
+    gs['events']['kill_watches'].set()
+    gs['log'].notice('Waiting for watch file threads ...')
+    for t in gs['threads']['watch_chans']:
+        gs['threads']['watch_chans'][t].join()
+    gs['threads']['watch_serv'].join()
+    gs['threads']['watch_priv'].join()
+    gs['threads']['watch_comm'].join()
+
+    gs['events']['kill_chanops'].set()
+    gs['log'].notice('Waiting for chan op threads ...')
+    for t in gs['threads']['chan_ops']:
+        gs['threads']['chan_ops'][t].join()
+
+    gs['events']['kill_opactions'].set()
+    gs['log'].notice('Waiting for operator action threads ...')
+    for t in gs['threads']['op_actions']:
+        gs['threads']['op_actions'][t].join()
+
+    if gs['threads']['log_to_masters'] is not None:
+        gs['events']['kill_logtomasters'].set()
+        gs['log'].notice('Waiting for log to masters thread ...')
+        gs['threads']['log_to_masters'].join()
+
+    gs['events']['kill_outmessage'].set()
+    gs['log'].notice('Waiting for out message thread ...')
+    gs['threads']['out_message'].join()
+
+    gs['events']['kill_iiwatchdog'].set()
+    gs['log'].notice('Waiting for ii watchdog thread ...')
+    gs['threads']['ii_watchdog'].join()
 
     gs['log']('Bye bye :( If you see this, tell my wife I love her')
 

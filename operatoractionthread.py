@@ -19,7 +19,7 @@ class OperatorActionThread(PBThread):
     def update_global_state(self, gs):
         self._log = gs['log']
         self._conf = gs['conf']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_opactions']
         self._out_msg = gs['threads']['out_message']
         self._heart_thread = gs['threads']['heart']
 
@@ -30,23 +30,23 @@ class OperatorActionThread(PBThread):
         channel_name = self._channel_name
         self._out_msg.add(self._out_msg.privmsg,
                           ['chanserv', 'deop {} kist'.format(channel_name)])
-        while not self._is_shutting_down.is_set():
-            while not (self._is_op.wait(1) or self._is_shutting_down.is_set()):
+        while not self._end_event.is_set():
+            while not (self._is_op.wait(1) or self._end_event.is_set()):
                 pass
-            if self._is_shutting_down.is_set():
+            if self._end_event.is_set():
                 break
             item = None
             count_empty, max_empty = 0, randint(120, 180)
             log.debug('waiting {}s for an action'.format(max_empty))
             while count_empty < max_empty and \
-                    not self._is_shutting_down.is_set():
+                    not self._end_event.is_set():
                 try:
                     item = self._waiting_actions.get(timeout=1.0)
                 except Empty:
                     count_empty += 1
                 else:
                     break
-            if self._is_shutting_down.is_set():
+            if self._end_event.is_set():
                 break
             if not item:
                 log.debug('no item')

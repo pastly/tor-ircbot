@@ -18,7 +18,7 @@ class LogToMastersThread(PBThread):
         log.info('Started LogToMastersThread', self._fname, 'instance')
         sub = subprocess.Popen('tail -F -n 0 {}'.format(self._fname).split(),
                                stdout=subprocess.PIPE, bufsize=1)
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             line_ = sub.stdout.readline()
             try:
                 line = line_.decode('utf8')
@@ -44,7 +44,7 @@ class LogToMastersThread(PBThread):
     def update_global_state(self, gs):
         self._log = gs['log']
         self._channel = gs['conf']['log']['out_channel']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_logtomasters']
         self._out_msg_thread = gs['threads']['out_message']
         if self._log:
             self._log.info('LogToMastersThread', self._fname, 'updated state')

@@ -55,12 +55,12 @@ class HeartbeatThread(PBThread):
     def _enter(self):
         log = self._log
         log.info('Starting Heartbeatthread instance')
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             event = None
             try:
                 event = self._event_queue.get(timeout=1)
             except Empty:
-                if self._is_shutting_down.is_set():
+                if self._end_event.is_set():
                     return self._shutdown()
             if event is not None:
                 self._handle_event(event)
@@ -166,7 +166,7 @@ class HeartbeatThread(PBThread):
         elif self._interval < 0:
             self._log('HeartbeatThread disabled with negative interval')
         self._last = time.time()
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_heartbeat']
 
     def _add(self, event):
         ''' Called (indirectly) from other threads '''

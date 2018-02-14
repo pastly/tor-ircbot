@@ -31,12 +31,12 @@ class OutboundMessageThread(PBThread):
         self._conf = gs['conf']
         self._server_dir = os.path.join(
             gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_outmessage']
 
     def _enter(self):
         log = self._log
         log.info('Started OutboundMessageThread instance')
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             self._action_queue.loop_once()
         self._shutdown()
 

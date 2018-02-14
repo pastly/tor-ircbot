@@ -26,7 +26,7 @@ class WatchFileThread(PBThread):
                    'instance')
         sub = subprocess.Popen('tail -F -n 0 {}'.format(self._fname).split(),
                                stdout=subprocess.PIPE, bufsize=1)
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             log = self._log
             line_ = sub.stdout.readline()
             try:
@@ -65,7 +65,7 @@ class WatchFileThread(PBThread):
             assert self._channel_name in chanop_threads
         self._chanop_threads = gs['threads']['chan_ops']
         self._command_thread = gs['threads']['command_listener']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_watches']
         if self._log:
             self._log.info('WatchFileThread', self._source, self._fname,
                            'updated state')

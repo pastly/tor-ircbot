@@ -26,7 +26,7 @@ class CommandListenerThread(PBThread):
         self._chan_op_threads = gs['threads']['chan_ops']
         self._operator_action_threads = gs['threads']['op_actions']
         self._conf = gs['conf']
-        self._is_shutting_down = gs['events']['is_shutting_down']
+        self._end_event = gs['events']['kill_command_listener']
         if 'masters' not in self._conf['general']:
             self._log.warn('No masters are configured so the '
                            'CommandListenerThread will likely be useless and '
@@ -48,12 +48,12 @@ class CommandListenerThread(PBThread):
     def _enter(self):
         log = self._log
         log.info('Started CommandListenerThread instance')
-        while not self._is_shutting_down.is_set():
+        while not self._end_event.is_set():
             source, line = "", ""
             try:
                 source, line = self._message_queue.get(timeout=1)
             except Empty:
-                if self._is_shutting_down.is_set():
+                if self._end_event.is_set():
                     return self._shutdown()
             if not len(line):
                 continue

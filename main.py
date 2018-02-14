@@ -18,38 +18,7 @@ from heartbeatthread import HeartbeatThread
 from pastlylogger import PastlyLogger
 
 
-def main():
-    config_file = 'config.ini'
-    gs = {
-        'threads': {
-            'watch_chans': {},
-            'watch_serv': None,
-            'watch_priv': None,
-            'watch_comm': None,
-            'chan_ops': {},
-            'command_listener': None,
-            'ii_watchdog': None,
-            'op_actions': {},
-            'out_message': None,
-            'log_to_masters': None,
-            'heart': None,
-        },
-        'events': {
-            'kill_command_listener': Event(),
-            'kill_chanops': Event(),
-            'kill_opactions': Event(),
-            'kill_watches': Event(),
-            'kill_iiwatchdog': Event(),
-            'kill_outmessage': Event(),
-            'kill_heartbeat': Event(),
-            'kill_logtomasters': Event(),
-        },
-        'conf': ConfigParser(),
-        'log': None,
-    }
-
-    gs['conf'].read(config_file)
-
+def create_threads(gs):
     server_dir = os.path.join(
         gs['conf']['ii']['ircdir'], gs['conf']['ii']['server'])
 
@@ -123,15 +92,10 @@ def main():
             if not thread.is_alive():
                 thread.update_global_state(gs)
                 thread.start()
+    return gs
 
-    gs['log']('All started and ready to go. I can\'t wait to help!')
 
-    try:
-        while True:
-            time.sleep(300)
-    except KeyboardInterrupt:
-        pass
-
+def destroy_threads(gs):
     gs['events']['kill_heartbeat'].set()
     gs['log'].notice('Waiting for heartbeat thread ...')
     gs['threads']['heart'].join()
@@ -170,7 +134,48 @@ def main():
     gs['events']['kill_iiwatchdog'].set()
     gs['log'].notice('Waiting for ii watchdog thread ...')
     gs['threads']['ii_watchdog'].join()
+    return gs
 
+
+def main():
+    config_file = 'config.ini'
+    gs = {
+        'threads': {
+            'watch_chans': {},
+            'watch_serv': None,
+            'watch_priv': None,
+            'watch_comm': None,
+            'chan_ops': {},
+            'command_listener': None,
+            'ii_watchdog': None,
+            'op_actions': {},
+            'out_message': None,
+            'log_to_masters': None,
+            'heart': None,
+        },
+        'events': {
+            'kill_command_listener': Event(),
+            'kill_chanops': Event(),
+            'kill_opactions': Event(),
+            'kill_watches': Event(),
+            'kill_iiwatchdog': Event(),
+            'kill_outmessage': Event(),
+            'kill_heartbeat': Event(),
+            'kill_logtomasters': Event(),
+        },
+        'conf': ConfigParser(),
+        'log': None,
+    }
+
+    gs['conf'].read(config_file)
+    gs = create_threads(gs)
+    gs['log']('All started and ready to go. I can\'t wait to help!')
+    try:
+        while True:
+            time.sleep(300)
+    except KeyboardInterrupt:
+        pass
+    gs = destroy_threads(gs)
     gs['log']('Bye bye :( If you see this, tell my wife I love her')
 
 

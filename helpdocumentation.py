@@ -11,12 +11,14 @@ def get_help_response(question):
         resp = top_help_str
     return _clean_response_string(resp)
 
+
 def _clean_response_string(resp_str):
     ''' make sure there are no blank lines in the response, which would waste
     precious outbound messages '''
     broken = resp_str.split('\n')
     broken = [b for b in broken if len(b) > 0]
     return '\n'.join(broken)
+
 
 def _navigate_help_tree(words, tree, used_words=['help']):
     assert len(words) > 0
@@ -115,3 +117,5 @@ help_ = {
 
 help_['help']['str'] = help_['help']['str'].format(comms=' '.join(help_.keys()))
 top_help_str = help_['help']['str']
+
+# pylama:ignore=E501

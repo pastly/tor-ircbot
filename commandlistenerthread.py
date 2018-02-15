@@ -180,6 +180,7 @@ class CommandListenerThread(PBThread):
         # so must be at least 3 words
         if len(words) != 3:
             self._notify_error(source, speaker, 'bad KICK command')
+            self._proc_help_msg(source, speaker, 'help kick'.split())
             return
         channel = words[1]
         nick = words[2]
@@ -255,8 +256,9 @@ class CommandListenerThread(PBThread):
         assert words[0].lower() in ['quiet', 'akick']
         assert speaker in self._masters
         if len(words) < 5:
-            self._notify_error(source, speaker, 'Bad command. <akick|quiet> '
-                               '<chan> <nick> <masks> <reason>')
+            self._notify_error(source, speaker,
+                               'Bad {} command'.format(words[0].upper()))
+            self._proc_help_msg(source, speaker, ['help', words[0].lower()])
             return
         verb, channel, nick, masks, *reason = words
         verb = verb.lower()

@@ -120,16 +120,16 @@ class CommandListenerThread(PBThread):
         if not ok:
             ok = 'OK'
         else:
-            ok = ' '.join(ok)
+            ok = ' '.join([str(m) for m in ok])
         return self._notify_impl(source, speaker, ok)
 
     def _notify_warn(self, source, speaker, *warn_msg):
-        warn_msg = ' '.join(warn_msg)
+        warn_msg = ' '.join([str(m) for m in warn_msg])
         warn_msg = '(W) {}'.format(warn_msg)
         return self._notify_impl(source, speaker, warn_msg)
 
     def _notify_error(self, source, speaker, *error_msg):
-        error_msg = ' '.join(error_msg)
+        error_msg = ' '.join([str(m) for m in error_msg])
         error_msg = '(E) {}'.format(error_msg)
         return self._notify_impl(source, speaker, error_msg)
 

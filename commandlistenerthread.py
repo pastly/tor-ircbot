@@ -95,6 +95,9 @@ class CommandListenerThread(PBThread):
             elif words[0].lower() in ['akick', 'quiet']:
                 self._proc_akick_or_quiet_msg(source, speaker, words)
                 continue
+            elif words[0].lower() in ['match']:
+                self._proc_match_msg(source, speaker, words)
+                continue
             else:
                 self._notify_impl(source, speaker, 'I don\'t understand')
                 continue
@@ -144,6 +147,76 @@ class CommandListenerThread(PBThread):
             chan = self._command_channel
             msg = '{}: {}'.format(speaker, pong)
             omt.add(omt.privmsg, [chan, msg])
+
+    def _proc_match_msg(self, source, speaker, words):
+        assert words[0].lower() == 'match'
+        assert speaker in self._masters
+        if len(words) != 2:
+            self._notify_error(source, speaker, 'bad MATCH command')
+            self._proc_help_msg(source, speaker, 'help match'.split())
+            return
+        nick = words[1]
+        member = None
+        # First search all channels for a member that has the given nick
+        for chan in self._channel_names:
+            if chan not in self._chan_op_threads:
+                self._notify_warn(source, speaker, 'cannot find chanop thread '
+                                  'for channel', chan)
+                continue
+            chanop_thread = self._chan_op_threads[chan]
+            if member is None and chanop_thread.members.contains(nick):
+                member = chanop_thread.members[nick]
+                break
+        # Give up if we didn't find the nick
+        if not member:
+            self._notify_error(source, speaker, 'cannot find', nick, 'in '
+                               'our moderated channels')
+            return
+        # Get and sort matches based on whether they matched the username or
+        # the hostname
+        matches = {'user': {}, 'host': {}}
+        for chan in self._channel_names:
+            # Get all matches in this channel
+            match_user, match_host = chanop_thread.members.matches(
+                user=member.user, host=member.host)
+            for match in match_user:
+                # Ignore it if it IS the nick we are asking about
+                if match.nick == member.nick:
+                    continue
+                if match.nick not in matches['user']:
+                    matches['user'][match.nick] = set()
+                # Remember that this matched nick is in this chan
+                matches['user'][match.nick].add(chan)
+            for match in match_host:
+                # Ignore it if it IS the nick we are asking about
+                if match.nick == member.nick:
+                    continue
+                if match.nick not in matches['host']:
+                    matches['host'][match.nick] = set()
+                # Remember that this matched nick is in this chan
+                matches['host'][match.nick].add(chan)
+        # Now log what we found
+        if len(matches['user']) > 0:
+            self._notify_impl(
+                source, speaker,
+                'Match on {}\'s user: ({})'.format(member.nick, member.user))
+            for nick in matches['user']:
+                chans = ' '.join(matches['user'][nick])
+                self._notify_impl(
+                    source, speaker,
+                    '    {}: ({})'.format(nick, chans))
+        if len(matches['host']) > 0:
+            self._notify_impl(
+                source, speaker,
+                'Match on {}\'s host: ({})'.format(member.nick, member.host))
+            for nick in matches['host']:
+                chans = ' '.join(matches['host'][nick])
+                self._notify_impl(
+                    source, speaker,
+                    '    {}: ({})'.format(nick, chans))
+        if len(matches['user']) < 1 and len(matches['host']) < 1:
+            self._notify_impl(source, speaker,
+                              '{} is unique'.format(str(member)))
 
     def _proc_mode_msg(self, source, speaker, words):
         assert words[0].lower() == 'mode'

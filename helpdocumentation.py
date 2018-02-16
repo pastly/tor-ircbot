@@ -78,6 +78,9 @@ examples:
     {comm} all nsa host hacking users
 see also: help {comm} mask'''
 
+help_match = '''Search the moderated channel(s) for nicks that match the given nick's username or hostname.
+match <nick>'''
+
 help_ = {
     'help': {
         'str': help_help,
@@ -111,6 +114,10 @@ help_ = {
     },
     'mode': {
         'str': help_mode,
+        'subs': None,
+    },
+    'match': {
+        'str': help_match,
         'subs': None,
     },
 }

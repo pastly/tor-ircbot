@@ -270,6 +270,7 @@ class CommandListenerThread(PBThread):
                        if m in CommandListenerThread.valid_masks]
         if len(valid_masks) < 1:
             self._notify_error(source, speaker, 'No valid masks in', masks)
+            self._proc_help_msg(source, speaker, ['help', verb, 'mask'])
             return
         masks = valid_masks
         reason = ' '.join(reason) + ' ({}) (by {})'.format(nick, speaker)

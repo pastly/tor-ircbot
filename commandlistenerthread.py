@@ -269,7 +269,7 @@ class CommandListenerThread(PBThread):
             self._notify_error(source, speaker, 'No valid masks in', masks)
             return
         masks = valid_masks
-        reason = ' '.join(reason) + ' ({})'.format(speaker)
+        reason = ' '.join(reason) + ' ({}) (by {})'.format(nick, speaker)
         if channel not in self._chan_op_threads and channel != 'all':
             self._notify_error(source, speaker, 'Unknown channel', channel)
             return

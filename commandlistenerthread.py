@@ -261,6 +261,9 @@ class CommandListenerThread(PBThread):
             self._proc_help_msg(source, speaker, ['help', words[0].lower()])
             return
         verb, channel, nick, masks, *reason = words
+        if channel not in self._chan_op_threads and channel != 'all':
+            self._notify_error(source, speaker, 'Unknown channel', channel)
+            return
         verb = verb.lower()
         masks = masks.split(',')
         valid_masks = [m for m in masks
@@ -270,9 +273,6 @@ class CommandListenerThread(PBThread):
             return
         masks = valid_masks
         reason = ' '.join(reason) + ' ({}) (by {})'.format(nick, speaker)
-        if channel not in self._chan_op_threads and channel != 'all':
-            self._notify_error(source, speaker, 'Unknown channel', channel)
-            return
         if channel == 'all':
             for chan in self._chan_op_threads:
                 self._send_akick_or_quiet_msg(source, speaker,

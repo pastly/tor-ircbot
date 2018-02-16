@@ -168,7 +168,8 @@ def main():
     gs = create_threads(gs)
     gs['log'](
         'All started and ready to go. I can\'t wait to help! '
-        'We are moderating:', *json.loads(gs['conf']['ii']['channels']))
+        'We are moderating:', *json.loads(gs['conf']['ii']['channels']),
+        'We have masters:', *json.loads(gs['conf']['general']['masters']))
     try:
         while True:
             time.sleep(300)

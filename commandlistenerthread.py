@@ -272,6 +272,9 @@ class CommandListenerThread(PBThread):
             self._notify_error(source, speaker, 'No valid masks in', masks)
             self._proc_help_msg(source, speaker, ['help', verb, 'mask'])
             return
+        for m in [m for m in masks if m not in valid_masks]:
+            self._notify_warn(source, speaker, m, 'is not a valid mask. '
+                    'Ignoring it.')
         masks = valid_masks
         reason = ' '.join(reason) + ' ({}) (by {})'.format(nick, speaker)
         if channel == 'all':

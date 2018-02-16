@@ -88,6 +88,7 @@ def create_threads(gs):
             if not thread.is_alive():
                 thread.update_global_state(gs)
                 thread.start()
+    time.sleep(1)
     return gs
 
 
@@ -165,7 +166,9 @@ def main():
 
     gs['conf'].read(config_file)
     gs = create_threads(gs)
-    gs['log']('All started and ready to go. I can\'t wait to help!')
+    gs['log'](
+        'All started and ready to go. I can\'t wait to help! '
+        'We are moderating:', *json.loads(gs['conf']['ii']['channels']))
     try:
         while True:
             time.sleep(300)

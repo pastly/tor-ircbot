@@ -148,32 +148,27 @@ class CommandListenerThread(PBThread):
             msg = '{}: {}'.format(speaker, pong)
             omt.add(omt.privmsg, [chan, msg])
 
-    def _proc_match_msg(self, source, speaker, words):
-        assert words[0].lower() == 'match'
-        assert speaker in self._masters
-        if len(words) != 2:
-            self._notify_error(source, speaker, 'bad MATCH command')
-            self._proc_help_msg(source, speaker, 'help match'.split())
-            return
-        nick = words[1]
-        member = None
-        # First search all channels for a member that has the given nick
+    def _find_member_for_nick(self, source, speaker, nick):
+        ''' support function for _proc_match_msg. Looks through the member
+        lists for each moderated channel and returns the member for
+        the given nick if it can be found. Otherwise returns None '''
         for chan in self._channel_names:
             if chan not in self._chan_op_threads:
                 self._notify_warn(source, speaker, 'cannot find chanop thread '
                                   'for channel', chan)
                 continue
             chanop_thread = self._chan_op_threads[chan]
-            if member is None and chanop_thread.members.contains(nick):
-                member = chanop_thread.members[nick]
-                break
-        # Give up if we didn't find the nick
-        if not member:
-            self._notify_error(source, speaker, 'cannot find', nick, 'in '
-                               'our moderated channels')
-            return
-        # Get and sort matches based on whether they matched the username or
-        # the hostname
+            if chanop_thread.members.contains(nick):
+                return chanop_thread.members[nick]
+        return None
+
+    def _find_matching_members(self, member):
+        ''' support function for _proc_match_msg. Query the member list in
+        each chanop thread for members that match the given member's username
+        and/or hostname. Returns a dictionary containing matches on username
+        and matches on host. The keys in the subdictionaries are nicknames,
+        and the values are the set of channels that nickname is found in.
+        '''
         matches = {'user': {}, 'host': {}}
         for chan in self._channel_names:
             # Get all matches in this channel
@@ -196,28 +191,41 @@ class CommandListenerThread(PBThread):
                     matches['host'][match.nick] = set()
                 # Remember that this matched nick is in this chan
                 matches['host'][match.nick].add(chan)
-        # Now log what we found
-        if len(matches['user']) > 0:
-            self._notify_impl(
-                source, speaker,
-                'Match on {}\'s user: ({})'.format(member.nick, member.user))
-            for nick in matches['user']:
-                chans = ' '.join(matches['user'][nick])
-                self._notify_impl(
-                    source, speaker,
-                    '    {}: ({})'.format(nick, chans))
-        if len(matches['host']) > 0:
-            self._notify_impl(
-                source, speaker,
-                'Match on {}\'s host: ({})'.format(member.nick, member.host))
-            for nick in matches['host']:
-                chans = ' '.join(matches['host'][nick])
-                self._notify_impl(
-                    source, speaker,
-                    '    {}: ({})'.format(nick, chans))
+        return matches
+
+    def _log_about_matches(self, source, speaker, member, matches, which):
+        assert which in ['user', 'host']
+        if len(matches[which]) < 1:
+            return
+        header = 'Match on {}\'s {}name {}'.format(
+            member.nick, which,
+            member.user if which == 'user' else member.host)
+        self._notify_impl(source, speaker, header)
+        for nick in matches[which]:
+            chans = ' '.join(matches[which][nick])
+            line = '    {}: ({})'.format(nick, chans)
+            self._notify_impl(source, speaker, line)
+
+    def _proc_match_msg(self, source, speaker, words):
+        assert words[0].lower() == 'match'
+        assert speaker in self._masters
+        if len(words) != 2:
+            self._notify_error(source, speaker, 'bad MATCH command')
+            self._proc_help_msg(source, speaker, 'help match'.split())
+            return
+        nick = words[1]
+        member = self._find_member_for_nick(source, speaker, nick)
+        if not member:
+            self._notify_error(source, speaker, 'cannot find', nick, 'in '
+                               'our moderated channels')
+            return
+        matches = self._find_matching_members(member)
         if len(matches['user']) < 1 and len(matches['host']) < 1:
             self._notify_impl(source, speaker,
                               '{} is unique'.format(str(member)))
+            return
+        self._log_about_matches(source, speaker, member, matches, 'user')
+        self._log_about_matches(source, speaker, member, matches, 'host')
 
     def _proc_mode_msg(self, source, speaker, words):
         assert words[0].lower() == 'mode'

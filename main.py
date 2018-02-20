@@ -166,10 +166,12 @@ def main():
 
     gs['conf'].read(config_file)
     gs = create_threads(gs)
+    channels_str = ', '.join(json.loads(gs['conf']['ii']['channels']))
+    masters_str = ', '.join(json.loads(gs['conf']['general']['masters']))
     gs['log'](
         'All started and ready to go. I can\'t wait to help! '
-        'We are moderating:', *json.loads(gs['conf']['ii']['channels']),
-        'We have masters:', *json.loads(gs['conf']['general']['masters']))
+        'We are moderating: {chans}. We have masters: {masters}.'.format(
+            chans=channels_str, masters=masters_str))
     try:
         while True:
             time.sleep(300)

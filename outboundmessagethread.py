@@ -45,31 +45,57 @@ class OutboundMessageThread(PBThread):
         log.info('OutboundMessageThread going away')
 
     def add(self, *args, **kwargs):
-        ''' Use this function to add outbound messages/commands '''
+        ''' Use this function to add outbound messages/commands.
+
+        The args and kwargs arguments in this function do NOT correspond to
+        the args and kwargs that get passed to the member function. They are
+        a very confusing way to give OutboundMessageThread.add the same
+        signature as ActionQueue.add.
+
+        All of the following should be equivalent and result in the same thing.
+        They should all result in OutboundMessageThread.servmsg getting the
+        message 'hi mom' and log_it set to False, and the function call will
+        be added to our ActionQueue with priority 55.
+
+        >>> omt.add(omt.servmsg,
+                    args=['hi mom'],
+                    kwargs={'log_it': False},
+                    priority=55)
+        >>> omt.add(omt.servmsg,
+                    ['hi mom'],
+                    {'log_it': False},
+                    priority=55)
+        >>> omt.add(omt.servmsg,
+                    ['hi mom'],
+                    kwargs={'log_it': False},
+                    55)
+        '''
         self._action_queue.add(*args, **kwargs)
 
-    def servmsg(self, message):
+    def servmsg(self, message, log_it=False):
         ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.servmsg, ['/mode #foo +i'])
         '''
+        if log_it:
+            self._log.notice('Sending:', message)
         fname = os.path.join(self._server_dir, 'in')
         with open(fname, 'w') as server_in:
             server_in.write('{}\n'.format(message))
 
-    def privmsg(self, nick, message):
+    def privmsg(self, nick, message, **kwargs):
         ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.privmsg, ['pastly', 'You left the stove on'])
         '''
-        self.servmsg('/privmsg {} {}'.format(nick, message))
+        self.servmsg('/privmsg {} {}'.format(nick, message), **kwargs)
 
-    def notice(self, target, message):
+    def notice(self, target, message, **kwargs):
         ''' Do not call this function directly. Pass it as an argument to add()
 
         >>> omt = outbound_message_thread
         >>> omt.add(omt.notice, ['#foobar', 'Promise this isnt spam'])
         '''
-        self.servmsg('/notice {} {}'.format(target, message))
+        self.servmsg('/notice {} {}'.format(target, message), **kwargs)

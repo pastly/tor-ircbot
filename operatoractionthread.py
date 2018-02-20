@@ -54,7 +54,8 @@ class OperatorActionThread(PBThread):
                     log.debug('Asking to be deopped')
                     self._out_msg.add(
                         self._out_msg.privmsg,
-                        ['chanserv', 'deop {} kist'.format(channel_name)])
+                        ['chanserv', 'deop {} kist'.format(channel_name)],
+                        {'log_it': True})
                     sleep(1.0)
                 continue
             args, kwargs = item
@@ -73,7 +74,8 @@ class OperatorActionThread(PBThread):
             log.debug('Asking to be opped in channel', self._channel_name)
             self._out_msg.add(
                 self._out_msg.privmsg,
-                ['chanserv', 'op {} kist'.format(self._channel_name)])
+                ['chanserv', 'op {} kist'.format(self._channel_name)],
+                {'log_it': True})
         self._waiting_actions.put((args, kwargs))
 
     def temporary_mute(self, enabled=True):
@@ -100,10 +102,9 @@ class OperatorActionThread(PBThread):
             'Setting channel mode', mode_str, 'on', self._channel_name,
             'because', reason)
         self._heart_thread.event_set_mode()
-        self.recv_action(
-            out_msg.add,
-            [out_msg.servmsg,
-             ['/mode {} {}'.format(self._channel_name, mode_str)]])
+        msg = '/mode {} {}'.format(self._channel_name, mode_str)
+        self.recv_action(out_msg.add,
+                         [out_msg.servmsg, [msg], {'log_it': True}])
 
     def kick_nick(self, nick, reason):
         ''' Call from other threads. '''
@@ -112,10 +113,9 @@ class OperatorActionThread(PBThread):
         log.notice(
             'Kicking', nick, 'from', self._channel_name, 'because', reason)
         self._heart_thread.event_kick()
-        self.recv_action(
-            out_msg.add,
-            [out_msg.servmsg,
-             ['/kick {} {} :{}'.format(self._channel_name, nick, reason)]])
+        msg = '/kick {} {} :{}'.format(self._channel_name, nick, reason)
+        self.recv_action(out_msg.add,
+                         [out_msg.servmsg, [msg], {'log_it': True}])
 
     def set_opped(self, opped):
         log = self._log

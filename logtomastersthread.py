@@ -26,7 +26,8 @@ class LogToMastersThread(PBThread):
                 if not len(line):
                     continue
                 omt.add(omt.privmsg,
-                        args=[self._channel, line],
+                        [self._channel, line],
+                        {'log_it': False},
                         priority=time.time()+300)
             except UnicodeDecodeError:
                 log.warn('Can\'t decode line, so ignoring', line_)

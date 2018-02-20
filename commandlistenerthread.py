@@ -177,6 +177,7 @@ class CommandListenerThread(PBThread):
         matches = {'user': {}, 'host': {}}
         for chan in self._channel_names:
             # Get all matches in this channel
+            chanop_thread = self._chan_op_threads[chan]
             match_user, match_host = chanop_thread.members.matches(
                 user=member.user, host=member.host)
             for match in match_user:

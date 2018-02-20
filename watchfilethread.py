@@ -31,22 +31,25 @@ class WatchFileThread(PBThread):
             line_ = sub.stdout.readline()
             try:
                 line = line_.decode('utf8')
-                line = line[:-1]
-                if not len(line):
-                    continue
-                if self._source == 'chan':
-                    assert self._channel_name in self._chanop_threads
-                    t = self._chanop_threads[self._channel_name]
-                    t.recv_line(self._source, line)
-                else:
-                    for t in self._chanop_threads:
-                        self._chanop_threads[t].recv_line(self._source, line)
-                if self._command_thread:
-                    self._command_thread.recv_line(self._source, line)
-                # if len(line): log.debug("[{}] {}".format(self._source, line))
             except UnicodeDecodeError:
-                log.warn('Can\'t decode line, so ignoring:', line_)
+                try:
+                    line = line_.decode('iso-8859-1')
+                except UnicodeDecodeError:
+                    log.warn('Can\'t decode line, so ignoring:', line_)
+                    continue
+            line = line[:-1]
+            if not len(line):
                 continue
+            if self._source == 'chan':
+                assert self._channel_name in self._chanop_threads
+                t = self._chanop_threads[self._channel_name]
+                t.recv_line(self._source, line)
+            else:
+                for t in self._chanop_threads:
+                    self._chanop_threads[t].recv_line(self._source, line)
+            if self._command_thread:
+                self._command_thread.recv_line(self._source, line)
+            # if len(line): log.debug("[{}] {}".format(self._source, line))
         sub.terminate()
         log.info('Stopping tail process for', self._fname)
         return self._shutdown()

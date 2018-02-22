@@ -149,7 +149,7 @@ class CommandListenerThread(PBThread):
             omt.add(omt.privmsg, [chan, msg])
 
     def _find_member_for_nick(self, source, speaker, nick):
-        ''' support function for _proc_match_msg. Looks through the member
+        ''' support function for _match_nick. Looks through the member
         lists for each moderated channel and returns the member for
         the given nick if it can be found. Otherwise returns None '''
         for chan in self._channel_names:
@@ -163,7 +163,7 @@ class CommandListenerThread(PBThread):
         return None
 
     def _find_matching_members(self, member):
-        ''' support function for _proc_match_msg. Query the member list in
+        ''' support function for _match_nick. Query the member list in
         each chanop thread for members that match the given member's username
         and/or hostname. Returns a dictionary containing matches on username
         and matches on host. The keys in the subdictionaries are nicknames,
@@ -206,14 +206,59 @@ class CommandListenerThread(PBThread):
             line = '    {}: ({})'.format(nick, chans)
             self._notify_impl(source, speaker, line)
 
-    def _proc_match_msg(self, source, speaker, words):
-        assert words[0].lower() == 'match'
-        assert speaker in self._masters
-        if len(words) != 2:
-            self._notify_error(source, speaker, 'bad MATCH command')
-            self._proc_help_msg(source, speaker, 'help match'.split())
+    def _match_nick_wildcard(self, source, speaker, wild_nick):
+        ''' support function for _proc_match_msg. Handles
+        "match nick*" "match *nick" and "match *nick*" '''
+        star_front, star_back = False, False
+        if wild_nick[0] == '*' and wild_nick[-1] == '*':
+            partial = wild_nick[1:-1]
+            star_front = True
+            star_back = True
+        elif wild_nick[0] == '*':
+            partial = wild_nick[1:]
+            star_front = True
+        else:
+            partial = wild_nick[:-1]
+            star_back = True
+        assert star_front or star_back
+        partial = partial.lower()
+        if partial.find('*') >= 0:
+            self._notify_error(
+                source, speaker, 'You may only specify an asterisk at the '
+                '*front, back*, or *both*.')
             return
-        nick = words[1]
+        if len(partial) < 1:
+            self._notify_error(
+                source, speaker, 'Parsed partial nick "{}" from nick mask '
+                '"{}" which is not long enough. '.format(partial, wild_nick))
+            return
+        matches = {}
+        for chan in self._chan_op_threads:
+            chanop_thread = self._chan_op_threads[chan]
+            for mem in chanop_thread.members:
+                if star_front and mem.nick.endswith(partial):
+                    if mem.nick not in matches:
+                        matches[mem.nick] = set()
+                    matches[mem.nick].add(chan)
+                if star_back and mem.nick.startswith(partial):
+                    if mem.nick not in matches:
+                        matches[mem.nick] = set()
+                    matches[mem.nick].add(chan)
+        self._notify_impl(
+            source, speaker, '{} nicks match the pattern {} in our moderated '
+            'channel(s)'.format(len(matches), wild_nick))
+        max_matches = 5
+        if len(matches) > max_matches:
+            self._notify_warn(source, speaker, 'only listing the first '
+                              '{}'.format(max_matches))
+        keys = sorted(list(matches.keys()))[:max_matches]
+        for nick in keys:
+            chans = ' '.join(matches[nick])
+            self._notify_impl(
+                source, speaker, '    {}: ({})'.format(nick, chans))
+
+    def _match_nick(self, source, speaker, nick):
+        ''' support function for _proc_match_msg. Handles "match nick" '''
         member = self._find_member_for_nick(source, speaker, nick)
         if not member:
             self._notify_error(source, speaker, 'cannot find', nick, 'in '
@@ -226,6 +271,22 @@ class CommandListenerThread(PBThread):
             return
         self._log_about_matches(source, speaker, member, matches, 'user')
         self._log_about_matches(source, speaker, member, matches, 'host')
+
+    def _proc_match_msg(self, source, speaker, words):
+        assert words[0].lower() == 'match'
+        assert speaker in self._masters
+        if len(words) != 2:
+            self._notify_error(source, speaker, 'bad MATCH command')
+            self._proc_help_msg(source, speaker, 'help match'.split())
+            return
+        nick = words[1]
+        if nick[0] == '*' or nick[-1] == '*':
+            return self._match_nick_wildcard(source, speaker, nick)
+        elif nick.find('*') < 0:
+            return self._match_nick(source, speaker, nick)
+        else:
+            self._notify_error(source, speaker, 'bad MATCH command')
+            self._proc_help_msg(source, speaker, 'help match'.split())
 
     def _proc_mode_msg(self, source, speaker, words):
         assert words[0].lower() == 'mode'

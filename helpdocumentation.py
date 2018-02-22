@@ -79,7 +79,13 @@ examples:
 see also: help {comm} mask'''
 
 help_match = '''Search the moderated channel(s) for nicks that match the given nick's username or hostname.
-match <nick>'''
+match <nick>
+Search the moderated channel(s) for nicks that match the given nickmask
+match [*]<nick>[*]
+examples:
+    match freakydude
+    match freak*
+'''
 
 help_ = {
     'help': {

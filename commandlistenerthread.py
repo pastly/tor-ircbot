@@ -236,14 +236,19 @@ class CommandListenerThread(PBThread):
         for chan in self._chan_op_threads:
             chanop_thread = self._chan_op_threads[chan]
             for mem in chanop_thread.members:
-                if star_front and mem.nick.endswith(partial):
-                    if mem.nick not in matches:
-                        matches[mem.nick] = set()
-                    matches[mem.nick].add(chan)
-                if star_back and mem.nick.startswith(partial):
-                    if mem.nick not in matches:
-                        matches[mem.nick] = set()
-                    matches[mem.nick].add(chan)
+                mem_nick = mem.nick.lower()
+                if star_front and mem_nick.endswith(partial):
+                    if mem_nick not in matches:
+                        matches[mem_nick] = set()
+                    matches[mem_nick].add(chan)
+                if star_back and mem_nick.startswith(partial):
+                    if mem_nick not in matches:
+                        matches[mem_nick] = set()
+                    matches[mem_nick].add(chan)
+                if star_front and star_back and mem_nick.find(partial) >= 0:
+                    if mem_nick not in matches:
+                        matches[mem_nick] = set()
+                    matches[mem_nick].add(chan)
         self._notify_impl(
             source, speaker, '{} nicks match the pattern {} in our moderated '
             'channel(s)'.format(len(matches), wild_nick))

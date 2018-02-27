@@ -385,12 +385,22 @@ class CommandListenerThread(PBThread):
         if not thread.members.contains(nick):
             self._notify_warn(
                 source, speaker, 'Channel', chan, 'doesn\'t have nick', nick,
-                'so ignoring masks and just {}ing the nick'.format(verb))
-            nick = '{}!*@*'.format(nick)
-            if verb == 'akick':
-                thread.chanserv_akick_add(nick, reason)
-            else:
-                thread.chanserv_quiet_add(nick, reason)
+                'so ignoring non-nick masks'.format(verb))
+            masks = [m for m in masks if 'nick' in m]
+            function = thread.chanserv_akick_add if verb == 'akick' \
+                else thread.chanserv_quiet_add
+            if 'nick' in masks:
+                n = '{}!*@*'.format(nick)
+                function(n, reason)
+            if 'nick*' in masks:
+                n = '{}*!*@*'.format(nick)
+                function(n, reason)
+            if '*nick' in masks:
+                n = '*{}!*@*'.format(nick)
+                function(n, reason)
+            if '*nick*' in masks:
+                n = '*{}*!*@*'.format(nick)
+                function(n, reason)
             return
         mem = thread.members[nick]
         for mask_ in masks:

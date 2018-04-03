@@ -82,7 +82,15 @@ class OutboundMessageThread(PBThread):
             self._log.notice('Sending:', message)
         fname = os.path.join(self._server_dir, 'in')
         with open(fname, 'w') as server_in:
-            server_in.write('{}\n'.format(message))
+            while True:
+                try:
+                    server_in.write('{}\n'.format(message))
+                except BrokenPipeError as e:
+                    log.warn(e, 'trying again in 0.1s')
+                    time.sleep(0.1)
+                    continue
+                else:
+                    break
 
     def privmsg(self, nick, message, **kwargs):
         ''' Do not call this function directly. Pass it as an argument to add()

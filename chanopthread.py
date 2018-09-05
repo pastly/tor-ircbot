@@ -75,6 +75,15 @@ class ChanOpThread(PBThread):
         if 'pats' in self._conf['banned_patterns']:
             for p in json.loads(self._conf['banned_patterns']['pats']):
                 self._banned_patterns.append(re.compile(p))
+        self._soapbox_patterns = []
+        self._soapbox_reason = ''
+        if 'pats' in self._conf['soapbox_patterns']:
+            self._soapbox_reason = self._conf['soapbox_patterns']['reason']
+            for p in json.loads(self._conf['soapbox_patterns']['pats']):
+                p = p.replace('/', ' */ *')
+                p = p.replace('-', ' *- *')
+                p = p.replace('.', ' *\\. *')
+                self._soapbox_patterns.append(re.compile(p, re.IGNORECASE))
         if self._log:
             self._log.info('ChanOpThread updated state')
 
@@ -185,6 +194,19 @@ class ChanOpThread(PBThread):
             else:
                 self.chanserv_quiet_add(
                     '{}!*@*'.format(speaker), 'banned pattern (auto)')
+        elif self._contains_soapbox_pattern(words):
+            log.notice('{} seems to be using us as a soapbox'.format(speaker))
+            r = self._soapbox_reason
+            if self._members.contains(speaker):
+                mem = self._members[speaker]
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(mem.nick), '{} (soapboxing) (auto)'.format(r))
+                self.chanserv_akick_add(
+                    '*!*@{}'.format(mem.host), '{} (soapboxing) (auto)'.format(r))
+            else:
+                self.chanserv_akick_add(
+                    '{}!*@*'.format(speaker), '{} (soapboxing) (auto)'.format(r))
+            oat.set_chan_mode('+R', 'soapboxing (auto)')
         elif self._is_highlight_spam(words):
             oat.temporary_mute(enabled=True)
             log.notice('{} highlight spammed'.format(speaker))
@@ -218,6 +240,14 @@ class ChanOpThread(PBThread):
     def _contains_banned_pattern(self, words):
         # words = ' '.join([ w.lower() for w in words ])
         for bp in self._banned_patterns:
+            # if bp.search(words): return True
+            if bp.search(' '.join(words)):
+                return True
+        return False
+
+    def _contains_soapbox_pattern(self, words):
+        # words = ' '.join([ w.lower() for w in words ])
+        for bp in self._soapbox_patterns:
             # if bp.search(words): return True
             if bp.search(' '.join(words)):
                 return True

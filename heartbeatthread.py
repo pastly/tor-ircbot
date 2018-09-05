@@ -128,6 +128,7 @@ class HeartbeatThread(PBThread):
             '{kick} kicks ({kick_t}); '
             '{qadd} added quiets ({qadd_t}); '
             '{qdel} deleted quiets ({qdel_t}); '
+            '{badd} added akicks ({badd_t}); '
             '{bdel} deleted akicks ({bdel_t}).'
             .format(
                 runtime=runtime,
@@ -136,8 +137,8 @@ class HeartbeatThread(PBThread):
                 nchange_t=counters['change_nick_total'],
                 ndel=counters['del_nick'], ndel_t=counters['del_nick_total'],
                 qadd=counters['quiet_add'], qadd_t=counters['quiet_add_total'],
-                badd=counters['akick_add'], badd_t=counters['akick_add_total'],
                 qdel=counters['quiet_del'], qdel_t=counters['quiet_del_total'],
+                badd=counters['akick_add'], badd_t=counters['akick_add_total'],
                 bdel=counters['akick_del'], bdel_t=counters['akick_del_total'],
                 mode=counters['mode'], mode_t=counters['mode_total'],
                 kick=counters['kick'], kick_t=counters['kick_total'],

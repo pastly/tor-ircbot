@@ -78,8 +78,8 @@ class CommandListenerThread(PBThread):
                 # we get a lot of privmsges from -!- for some reason
                 if speaker == '!':
                     continue
-                log.notice('Ignoring command/privmsg from non-master',
-                           speaker)
+                log.info('Ignoring command/privmsg from non-master',
+                         speaker)
                 continue
             if ' '.join(words).lower() == 'ping':
                 self._proc_ping_msg(source, speaker, words)

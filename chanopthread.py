@@ -117,6 +117,11 @@ class ChanOpThread(PBThread):
                     user, host, server, nick, unknown1, unknown2 = words[0:6]
                     self._add_member(nick, user, host)
             elif speaker[0] != '<' or speaker[-1] != '>':
+                # if speaker starts with '#', then ignore it. It's a channel
+                # and we end up spamming our logs when updating member lists
+                # when moderating many channels
+                if speaker[0] == '#':
+                    continue
                 log.debug('Ignoring weird speaker: {}'.format(speaker))
             else:
                 speaker = speaker[1:-1].lower()
@@ -347,6 +352,7 @@ class ChanOpThread(PBThread):
     def chanserv_akick_add(self, mask, reason=''):
         ''' Can be called from any thread, including this one '''
         self._heart_thread.event_add_akick()
+        self._log.notice('akicking {} because {}'.format(mask, reason))
         return self._chanserv('akick', 'add', mask, reason)
 
     def chanserv_akick_del(self, mask):
@@ -357,6 +363,7 @@ class ChanOpThread(PBThread):
     def chanserv_quiet_add(self, mask, reason=''):
         ''' Can be called from any thread, including this one '''
         self._heart_thread.event_add_quiet()
+        self._log.notice('quieting {} because {}'.format(mask, reason))
         return self._chanserv('quiet', 'add', mask, reason)
 
     def chanserv_quiet_del(self, mask):

@@ -78,7 +78,7 @@ class OutboundMessageThread(PBThread):
         >>> omt = outbound_message_thread
         >>> omt.add(omt.servmsg, ['/mode #foo +i'])
         '''
-        if log_it:
+        if log_it and False:
             self._log.notice('Sending:', message)
         fname = os.path.join(self._server_dir, 'in')
         with open(fname, 'w') as server_in:

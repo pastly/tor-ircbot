@@ -326,12 +326,16 @@ class CommandListenerThread(PBThread):
         assert speaker in self._masters
         # expecting 'kick #channel foobar' or similar
         # so must be at least 3 words
-        if len(words) != 3:
+        if len(words) < 3:
             self._notify_error(source, speaker, 'bad KICK command')
             self._proc_help_msg(source, speaker, 'help kick'.split())
             return
         channel = words[1]
         nick = words[2]
+        if len(words) > 3:
+            reason = ' '.join(words[3:])
+        else:
+            reason = '{} said so'.format(speaker)
         if channel != 'all':
             if channel not in self._channel_names:
                 self._notify_error(source, speaker, 'not moderating channel',
@@ -342,11 +346,11 @@ class CommandListenerThread(PBThread):
                                    'action thread for channel', channel)
                 return
             oat = self._operator_action_threads[channel]
-            oat.kick_nick(nick, '{} said so'.format(speaker))
+            oat.kick_nick(nick, reason)
         else:
             for channel in self._operator_action_threads:
                 oat = self._operator_action_threads[channel]
-                oat.kick_nick(nick, '{} said so'.format(speaker))
+                oat.kick_nick(nick, reason)
         self._notify_okay(source, speaker)
 
     def _calculate_mask(self, mem, mask):

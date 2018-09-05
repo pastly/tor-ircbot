@@ -49,9 +49,9 @@ For example: nick* --> foo*!*@*
 
 
 help_kick = '''Kick someone from the moderated channel(s)
-kick <#channel|all> <nick>
+kick <#channel|all> <nick> [reason str]
 examples:
-    kick #foo annoyingdude
+    kick #foo annoyingdude You're being really annoying
     kick all two1337foury0u
 '''
 

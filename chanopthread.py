@@ -349,10 +349,18 @@ class ChanOpThread(PBThread):
         if len(self._members) <= old_len:
             log.warn('Adding {} to members didn\'t inc length'.format(nick))
 
-    def chanserv_akick_add(self, mask, reason=''):
+    def chanserv_akick_add(self, mask, reason='', master=None):
         ''' Can be called from any thread, including this one '''
         self._heart_thread.event_add_akick()
-        self._log.notice('akicking {} because {}'.format(mask, reason))
+        # Reason is included when chanserv akicks, so unlike
+        # self.chanserv_quiet_add, we don't need to send NOTICE to room
+        #
+        # Now privately log the reason, but add the nick of the master who told
+        # us to add this akick
+        log_str = 'akicking {} because {}'.format(mask, reason)
+        log_str += '' if not master else ' (by {})'.format(master)
+        self._log.notice(log_str)
+        # Finally actually send the akick command
         return self._chanserv('akick', 'add', mask, reason)
 
     def chanserv_akick_del(self, mask):
@@ -360,10 +368,18 @@ class ChanOpThread(PBThread):
         self._heart_thread.event_del_akick()
         return self._chanserv('akick', 'del', mask, reason='')
 
-    def chanserv_quiet_add(self, mask, reason=''):
+    def chanserv_quiet_add(self, mask, reason='', master=None):
         ''' Can be called from any thread, including this one '''
         self._heart_thread.event_add_quiet()
-        self._log.notice('quieting {} because {}'.format(mask, reason))
+        log_str = 'quieting {} because {}'.format(mask, reason)
+        # Reason isn't included when chanserv quiets, so send NOTICE to room
+        omt = self._out_msg_thread
+        omt.add(omt.notice, [self._channel_name, log_str])
+        # And privately log the same reason, but add the nick of the master
+        # who told us to add this quiet
+        log_str += '' if not master else ' (by {})'.format(master)
+        self._log.notice(log_str)
+        # Finally actually send the quiet command
         return self._chanserv('quiet', 'add', mask, reason)
 
     def chanserv_quiet_del(self, mask):

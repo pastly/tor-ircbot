@@ -395,24 +395,24 @@ class CommandListenerThread(PBThread):
                 else thread.chanserv_quiet_add
             if 'nick' in masks:
                 n = '{}!*@*'.format(nick)
-                function(n, reason)
+                function(n, reason, speaker)
             if 'nick*' in masks:
                 n = '{}*!*@*'.format(nick)
-                function(n, reason)
+                function(n, reason, speaker)
             if '*nick' in masks:
                 n = '*{}!*@*'.format(nick)
-                function(n, reason)
+                function(n, reason, speaker)
             if '*nick*' in masks:
                 n = '*{}*!*@*'.format(nick)
-                function(n, reason)
+                function(n, reason, speaker)
             return
         mem = thread.members[nick]
         for mask_ in masks:
             mask = self._calculate_mask(mem, mask_)
             if verb == 'akick':
-                thread.chanserv_akick_add(mask, reason)
+                thread.chanserv_akick_add(mask, reason, speaker)
             else:
-                thread.chanserv_quiet_add(mask, reason)
+                thread.chanserv_quiet_add(mask, reason, speaker)
 
     def _proc_akick_or_quiet_msg(self, source, speaker, words):
         assert words[0].lower() in ['quiet', 'akick']
@@ -438,7 +438,7 @@ class CommandListenerThread(PBThread):
             self._notify_warn(
                 source, speaker, m, 'is not a valid mask. Ignoring it.')
         masks = valid_masks
-        reason = ' '.join(reason) + ' ({}) (by {})'.format(nick, speaker)
+        reason = ' '.join(reason) + ' ({})'.format(nick)
         if channel == 'all':
             for chan in self._chan_op_threads:
                 self._send_akick_or_quiet_msg(source, speaker,

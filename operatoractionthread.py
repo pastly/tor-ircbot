@@ -29,7 +29,7 @@ class OperatorActionThread(PBThread):
         log.debug('Asking to be deopped')
         channel_name = self._channel_name
         self._out_msg.add(self._out_msg.privmsg,
-                          ['chanserv', 'deop {} kist'.format(channel_name)])
+                          ['chanserv', 'deop {} TorModBot'.format(channel_name)])
         while not self._end_event.is_set():
             while not (self._is_op.wait(1) or self._end_event.is_set()):
                 pass
@@ -54,7 +54,7 @@ class OperatorActionThread(PBThread):
                     log.debug('Asking to be deopped')
                     self._out_msg.add(
                         self._out_msg.privmsg,
-                        ['chanserv', 'deop {} kist'.format(channel_name)],
+                        ['chanserv', 'deop {} TorModBot'.format(channel_name)],
                         {'log_it': True})
                     sleep(1.0)
                 continue
@@ -74,7 +74,7 @@ class OperatorActionThread(PBThread):
             log.debug('Asking to be opped in channel', self._channel_name)
             self._out_msg.add(
                 self._out_msg.privmsg,
-                ['chanserv', 'op {} kist'.format(self._channel_name)],
+                ['chanserv', 'op {} TorModBot'.format(self._channel_name)],
                 {'log_it': True})
         self._waiting_actions.put((args, kwargs))
 

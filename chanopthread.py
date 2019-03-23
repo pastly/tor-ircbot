@@ -136,9 +136,9 @@ class ChanOpThread(PBThread):
             # who = words[0]
             mode = words[4]
             arg = words[5] if len(words) >= 6 else None
-            if mode == '+o' and arg == 'kist':
+            if mode == '+o' and arg == 'TorModBot':
                 oat.set_opped(True)
-            if mode == '-o' and arg == 'kist':
+            if mode == '-o' and arg == 'TorModBot':
                 oat.set_opped(False)
         elif ' '.join(words[1:4]) == 'has joined {}'.format(channel_name):
             s = words[0]

@@ -57,7 +57,7 @@ def create_threads(gs):
         os.path.join(server_dir, 'out'), 'serv', gs)
 
     gs['threads']['watch_priv'] = WatchFileThread(
-        os.path.join(server_dir, 'kist', 'out'), 'priv', gs)
+        os.path.join(server_dir, 'TorModBot'.lower(), 'out'), 'priv', gs)
 
     if 'general' in gs['conf'] and 'command_channel' in gs['conf']['general']:
         comm_chan = gs['conf']['general']['command_channel']

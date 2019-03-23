@@ -39,6 +39,10 @@ class ChanOpThread(PBThread):
             self._masters = []
         else:
             self._masters = json.loads(self._conf['general']['masters'])
+        if 'ignores' not in self._conf['general']:
+            self._ignores = []
+        else:
+            self._ignores = json.loads(self._conf['general']['ignores'])
         self._highlight_spam_token_bucket = token_bucket(
             int(self._conf['highlight_spam']['long_mention_limit']),
             float(self._conf['highlight_spam']['long_mention_limit_seconds']) /
@@ -125,6 +129,9 @@ class ChanOpThread(PBThread):
                 log.debug('Ignoring weird speaker: {}'.format(speaker))
             else:
                 speaker = speaker[1:-1].lower()
+                if speaker in self._ignores:
+                    log.debug('Ignoring speaker on ignore list: {}'.format(speaker))
+                    continue
                 self._proc_chan_msg(speaker, words)
 
     def _proc_ctrl_msg(self, speaker, words):
